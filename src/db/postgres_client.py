@@ -132,14 +132,35 @@ class PostgresConnection:
             CREATE INDEX IF NOT EXISTS idx_order_item_lookup ON order_items(product_id, order_id);
             """,
             """
-            CREATE INDEX IF NOT EXISTS idx_embedding_product ON product_embeddings USING hnsw (embedding vector_l2_ops);
+            CREATE INDEX IF NOT EXISTS idx_embedding_product ON product_embeddings USING hnsw (embedding vector_cosine_ops);
             """,
         ]
 
         with self.get_cursor() as cursor:
             for query in queries:
                 cursor.execute(query)
-        
+
+    def find_similar_products(self, product_id: str, limit: int = 5):
+        """Find similar products using vector similarity search."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.name,
+                    p.price,
+                    1 - (pe.embedding <=> pe2.embedding) as similarity
+                FROM product_embeddings pe
+                JOIN products p ON pe.product_id = p.id
+                JOIN product_embeddings pe2 ON pe2.product_id = %s
+                WHERE p.id <> %s
+                ORDER BY pe.embedding <=> pe2.embedding
+                LIMIT %s
+                """,
+                (product_id, product_id, limit)
+            )
+            return cursor.fetchall()
+
 
 # Singleton instance
 db = PostgresConnection()
