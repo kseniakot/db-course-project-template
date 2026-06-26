@@ -11,17 +11,6 @@ class VectorLoader:
         self.model = SentenceTransformer(model_name)
         self.parser = DataParser()
 
-    def create_vector_extension(self):
-        """Enable pgvector extension and create embeddings table."""
-        with db.get_cursor() as cursor:
-            cursor.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS product_embeddings (
-                    product_id VARCHAR(10) PRIMARY KEY,
-                    description_embedding vector(384)  -- 384 dimensions for MiniLM
-                );
-            """)
-
     def generate_embeddings(self):
         """Generate embeddings for all product descriptions."""
         products = self.parser.parse_products()
@@ -41,10 +30,10 @@ class VectorLoader:
         with db.get_cursor() as cursor:
             cursor.execute(
                 """
-                INSERT INTO product_embeddings (product_id, description_embedding)
+                INSERT INTO product_embeddings (product_id, embedding)
                 VALUES (%s, %s)
                 ON CONFLICT (product_id) DO UPDATE
-                SET description_embedding = EXCLUDED.description_embedding;
+                SET embedding = EXCLUDED.embedding;
                 """,
                 (product_id, embedding.tolist()),
             )
