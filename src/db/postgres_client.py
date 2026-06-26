@@ -134,6 +134,9 @@ class PostgresConnection:
             """
             CREATE INDEX IF NOT EXISTS idx_embedding_product ON product_embeddings USING hnsw (embedding vector_cosine_ops);
             """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_product_fulltext ON products USING gin (to_tsvector('english', name || ' ' || description));
+            """,
         ]
 
         with self.get_cursor() as cursor:
@@ -158,6 +161,110 @@ class PostgresConnection:
                 LIMIT %s
                 """,
                 (product_id, product_id, limit)
+            )
+            return cursor.fetchall()
+        
+    def full_text_search(self, query: str, limit: int = 10):
+        """Full-text search across product names and descriptions."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id,
+                    p.name,
+                    p.description,
+                    p.price,
+                    c.name as category,
+                    s.name as seller
+                FROM products p
+                JOIN categories c ON p.category_id = c.id
+                JOIN sellers s ON p.seller_id = s.id
+                WHERE p.stock >= 1
+                AND (
+                    to_tsvector('english', p.name || ' ' || p.description)
+                    @@ plainto_tsquery('english', %s)
+                )
+                LIMIT %s
+                """,
+                (query, limit)
+            )
+            return cursor.fetchall()
+        
+    def search_by_name(self, name: str, limit: int = 10):
+        """Search products by name (case-insensitive)."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id, p.name, p.description, p.price,
+                    c.name as category, s.name as seller
+                FROM products p
+                JOIN categories c ON p.category_id = c.id
+                JOIN sellers s ON p.seller_id = s.id
+                WHERE p.stock >= 1 AND p.name ILIKE %s
+                ORDER BY p.name ASC
+                LIMIT %s
+                """,
+                (f'%{name}%', limit)
+            )
+            return cursor.fetchall()
+
+    def search_by_tags(self, tags: list, limit: int = 10):
+        """Search products that have ANY of the specified tags."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id, p.name, p.description, p.price,
+                    c.name as category, s.name as seller
+                FROM products p
+                JOIN categories c ON p.category_id = c.id
+                JOIN sellers s ON p.seller_id = s.id
+                WHERE p.stock >= 1 AND p.tags && %s
+                ORDER BY p.name ASC
+                LIMIT %s
+                """,
+                (tags, limit)
+            )
+            return cursor.fetchall()
+
+    def filter_by_category(self, category_id: str, limit: int = 20):
+        """Filter products by category."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id, p.name, p.description, p.price,
+                    c.name as category, s.name as seller
+                FROM products p
+                JOIN categories c ON p.category_id = c.id
+                JOIN sellers s ON p.seller_id = s.id
+                WHERE p.stock >= 1 AND p.category_id = %s
+                ORDER BY p.price ASC
+                LIMIT %s
+                """,
+                (category_id, limit)
+            )
+            return cursor.fetchall()
+
+    def filter_by_price(self, min_price: float = 0, max_price: float = float('inf'), limit: int = 20):
+        """Filter products by price range."""
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    p.id, p.name, p.description, p.price,
+                    c.name as category, s.name as seller
+                FROM products p
+                JOIN categories c ON p.category_id = c.id
+                JOIN sellers s ON p.seller_id = s.id
+                WHERE p.stock >= 1
+                AND p.price >= %s
+                AND p.price <= %s
+                ORDER BY p.price ASC
+                LIMIT %s
+                """,
+                (min_price, max_price, limit)
             )
             return cursor.fetchall()
 

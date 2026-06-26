@@ -87,6 +87,19 @@ class RedisClient:
         """Get cached recommendations ready to show."""
         key = f"{RECOMMENDATIONS_PREFIX}:{user_id}"
         return self.get_json(key)
+    
+    def increment_cache_metric(self, metric_name: str):
+        """Increment a cache metric"""
+        self.client.incr(f"cache_metrics:{metric_name}")
+
+    def get_cache_metrics(self) -> dict[str, int]:
+        """Get all cache metrics like hits and misses by scanning keys."""
+        metrics = {}
+        for key in self.client.scan_iter("cache_metrics:*"):
+            metric_name = key.split(":", 1)[1]
+            value = self.client.get(key)
+            metrics[metric_name] = int(value) if value else 0
+        return metrics
         
 
 
