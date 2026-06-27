@@ -11,7 +11,7 @@ from src.config import MONGO_CONFIG
 
 class MongoDBClient:
     def __init__(self) -> None:
-        self.client: MongoClient[Any] = MongoClient(MONGO_CONFIG["uri"])
+        self.client: MongoClient[Any] = MongoClient(MONGO_CONFIG["uri"], maxPoolSize=50)
         self.db: Database[Any] = self.client[MONGO_CONFIG["database"]]
 
     def get_collection(self, name: str) -> Collection[Any]:

@@ -11,7 +11,9 @@ from src.config import NEO4J_CONFIG
 class Neo4jClient:
     def __init__(self) -> None:
         self.driver: Driver = GraphDatabase.driver(
-            NEO4J_CONFIG["uri"], auth=(NEO4J_CONFIG["user"], NEO4J_CONFIG["password"])
+            NEO4J_CONFIG["uri"],
+            auth=(NEO4J_CONFIG["user"], NEO4J_CONFIG["password"]),
+            max_connection_pool_size=50,
         )
 
     def close(self) -> None:

@@ -25,7 +25,8 @@ VIEWED_PREFIX = "viewed"
 
 class RedisClient:
     def __init__(self) -> None:
-        self.client: redis.Redis[str] = redis.Redis(**REDIS_CONFIG)
+        pool: redis.ConnectionPool = redis.ConnectionPool(max_connections=50, **REDIS_CONFIG)
+        self.client: redis.Redis[str] = redis.Redis(connection_pool=pool)
 
     def get_json(self, key: str) -> Optional[Any]:
         """Get JSON data from Redis.
