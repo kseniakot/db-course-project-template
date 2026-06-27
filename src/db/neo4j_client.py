@@ -3,8 +3,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from neo4j import GraphDatabase
-from neo4j.driver import Driver, Session
+from neo4j import Driver, GraphDatabase, Session
 
 from src.config import NEO4J_CONFIG
 
@@ -39,6 +38,99 @@ class Neo4jClient:
             )
             print("Neo4j constraints created.")
 
+    def create_category_node(self, category_id: str, name: str) -> None:
+        """Create or update a Category node.
+
+        Args:
+            category_id: Category identifier
+            name: Category name
+        """
+        with self.driver.session() as session:
+            session.run(
+                """
+                MERGE (c:Category {id: $category_id})
+                SET c.name = $name
+                """,
+                category_id=category_id,
+                name=name,
+            )
+
+    def create_seller_node(self, seller_id: str, name: str) -> None:
+        """Create or update a Seller node.
+
+        Args:
+            seller_id: Seller identifier
+            name: Seller name
+        """
+        with self.driver.session() as session:
+            session.run(
+                """
+                MERGE (s:Seller {id: $seller_id})
+                SET s.name = $name
+                """,
+                seller_id=seller_id,
+                name=name,
+            )
+
+    def create_user_node(self, user_id: str, name: str, join_date: str) -> None:
+        """Create or update a User node.
+
+        Args:
+            user_id: User identifier
+            name: User name
+            join_date: Join date (ISO format string)
+        """
+        with self.driver.session() as session:
+            session.run(
+                """
+                MERGE (u:User {id: $user_id})
+                SET u.name = $name, u.join_date = $join_date
+                """,
+                user_id=user_id,
+                name=name,
+                join_date=join_date,
+            )
+
+    def create_product_node(
+        self,
+        product_id: str,
+        name: str,
+        price: float,
+        category: str,
+        category_id: str,
+        seller_id: str,
+    ) -> None:
+        """Create or update a Product node.
+
+        Stores only the minimal fields needed for graph traversal and result
+        return.
+
+        Args:
+            product_id: Product identifier
+            name: Product name
+            price: Product price
+            category: Category name
+            category_id: Category identifier (for similarity scoring)
+            seller_id: Seller identifier (for similarity scoring)
+        """
+        with self.driver.session() as session:
+            session.run(
+                """
+                MERGE (p:Product {id: $product_id})
+                SET p.name = $name,
+                    p.price = $price,
+                    p.category = $category,
+                    p.category_id = $category_id,
+                    p.seller_id = $seller_id
+                """,
+                product_id=product_id,
+                name=name,
+                price=price,
+                category=category,
+                category_id=category_id,
+                seller_id=seller_id,
+            )
+
     def add_view_relationship(self, user_id: str, product_id: str) -> None:
         """Add a VIEWED relationship between user and product.
 
@@ -70,7 +162,8 @@ class Neo4jClient:
                 """
                 MATCH (s:Seller {id: $seller_id})
                 MATCH (p:Product {id: $product_id})
-                CREATE (s)-[:CREATED {timestamp: $timestamp}]->(p)
+                MERGE (s)-[r:CREATED]->(p)
+                SET r.timestamp = $timestamp
                 """,
                 seller_id=seller_id,
                 product_id=product_id,
@@ -89,28 +182,31 @@ class Neo4jClient:
                 """
                 MATCH (c:Category {id: $category_id})
                 MATCH (p:Product {id: $product_id})
-                CREATE (p)-[:BELONGS_TO]->(c)
+                MERGE (p)-[:BELONGS_TO]->(c)
                 """,
                 category_id=category_id,
                 product_id=product_id,
             )
 
-    def add_similar_to_relationship(self, product1_id: str, product2_id: str) -> None:
+    def add_similar_to_relationship(self, product1_id: str, product2_id: str, score: float) -> None:
         """Add a SIMILAR_TO relationship between products.
 
         Args:
             product1_id: First product identifier
             product2_id: Second product identifier
+            score: Similarity score between the two products
         """
         with self.driver.session() as session:
             session.run(
                 """
                 MATCH (p1:Product {id: $product1_id})
                 MATCH (p2:Product {id: $product2_id})
-                CREATE (p1)-[:SIMILAR_TO]->(p2)
+                MERGE (p1)-[r:SIMILAR_TO]->(p2)
+                SET r.score = $score
                 """,
                 product1_id=product1_id,
                 product2_id=product2_id,
+                score=score,
             )
 
     def add_purchase_relationship(self, user_id: str, product_id: str, quantity: int, date: str) -> None:
