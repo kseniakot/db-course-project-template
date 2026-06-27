@@ -12,6 +12,8 @@ from src.config import (
     RATE_LIMIT_WINDOW,
     RECOMMENDATIONS_TTL,
     REDIS_CONFIG,
+    HOT_PRODUCTS_TTL, 
+    CACHE_METRICS_TTL
 )
 
 CART_PREFIX = "cart"
@@ -78,34 +80,35 @@ class RedisClient:
         self.client.expire(cart_key, CART_TTL)
         return result
 
-    def add_to_hot_products(self, product_id: str, date_key: str = "today") -> float:
+    def add_to_hot_products(self, product_id: str, date_key: str) -> float:
         """Increment product score in hot products list.
 
         Args:
             product_id: Product identifier
-            date_key: Date key for organizing hot products (default: 'today')
+            date_key: Date key for organizing hot products
 
         Returns:
             New score value
         """
-        key: str = f"hot_products:{date_key}"
-        result: float = self.client.zincrby(key, 1, product_id)
-        self.client.expire(key, 7 * 86400)
+        key = f"hot_products:{date_key}"
+        result = self.client.zincrby(key, 1, product_id)
+        self.client.expire(key, HOT_PRODUCTS_TTL)
         return result
 
-    def get_hot_products(self, limit: int = 10, date_key: str = "today") -> List[Tuple[str, float]]:
-        """Get top products by purchase count (descending order).
+    def get_hot_products(self, date_key: str, limit: int = 10,) -> List[Tuple[str, float]]:
+        """Get top products by purchase count.
 
         Args:
+            date_key: Date key for organizing hot products
             limit: Number of products to return
-            date_key: Date key for organizing hot products (default: 'today')
 
         Returns:
             List of tuples (product_id, score)
         """
-        key: str = f"hot_products:{date_key}"
-        results: List[Tuple[str, float]] = self.client.zrange(key, -limit, -1, withscores=True)
-        return results
+        key = f"hot_products:{date_key}"
+        results = self.client.zrange(key, 0, -1, desc=True,  withscores=True)
+       
+        return results[-limit:]
 
     def update_cart_item_quantity(self, user_id: str, product_id: str, quantity: int) -> int:
         """Set a specific quantity for a product in the cart.
@@ -183,7 +186,7 @@ class RedisClient:
 
         return count <= RATE_LIMIT_REQUESTS
 
-    def increment_cache_metric(self, metric_name: str) -> int:
+    def increment_cache_metric(self, metric_name: str, ttl: int = CACHE_METRICS_TTL) -> int:
         """Increment a cache metric counter.
 
         Args:
@@ -192,7 +195,9 @@ class RedisClient:
         Returns:
             New metric value
         """
-        result: int = self.client.incr(f"cache_metrics:{metric_name}")
+        key = f"cache_metrics:{metric_name}"
+        result: int = self.client.incr(key)
+        self.client.expire(key, ttl, nx=True)
         return result
 
     def get_cache_metrics(self) -> Dict[str, int]:
