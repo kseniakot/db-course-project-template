@@ -5,11 +5,15 @@ from typing import Any, Dict, Generator, List, Optional
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from psycopg2.pool import ThreadedConnectionPool
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from src.config import POSTGRES_CONFIG
+
+POOL_MIN_CONN = 1
+POOL_MAX_CONN = 10
 
 # SQLAlchemy declarative base
 try:
@@ -27,6 +31,14 @@ class PostgresConnection:
         self.config: Dict[str, Any] = POSTGRES_CONFIG
         self._engine: Optional[Engine] = None
         self._session_factory: Optional[sessionmaker] = None
+        self._pool: Optional[ThreadedConnectionPool] = None
+
+    @property
+    def pool(self) -> ThreadedConnectionPool:
+        """Get or create the psycopg2 connection pool."""
+        if not self._pool:
+            self._pool = ThreadedConnectionPool(POOL_MIN_CONN, POOL_MAX_CONN, **self.config)
+        return self._pool
 
     @property
     def engine(self) -> Engine:
@@ -53,7 +65,7 @@ class PostgresConnection:
         Yields:
             RealDictCursor: Cursor that returns rows as dictionaries
         """
-        conn: psycopg2.extensions.connection = psycopg2.connect(**self.config)
+        conn: psycopg2.extensions.connection = self.pool.getconn()
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 yield cursor
@@ -62,7 +74,7 @@ class PostgresConnection:
             conn.rollback()
             raise e
         finally:
-            conn.close()
+            self.pool.putconn(conn)
 
     def create_tables(self) -> None:
         """Create all tables in the database."""
