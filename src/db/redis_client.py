@@ -1,9 +1,18 @@
 """Redis connection and utilities."""
 
-import redis
 import json
-from typing import Optional, Any
-from src.config import REDIS_CONFIG, CACHE_TTL, CART_TTL, RATE_LIMIT_REQUESTS, RATE_LIMIT_WINDOW, RECOMMENDATIONS_TTL
+from typing import Any, Dict, List, Optional, Tuple
+
+import redis
+
+from src.config import (
+    CACHE_TTL,
+    CART_TTL,
+    RATE_LIMIT_REQUESTS,
+    RATE_LIMIT_WINDOW,
+    RECOMMENDATIONS_TTL,
+    REDIS_CONFIG,
+)
 
 CART_PREFIX = "cart"
 RATE_LIMIT_PREFIX = "rate_limit"
@@ -13,93 +22,194 @@ VIEWED_PREFIX = "viewed"
 
 
 class RedisClient:
-    def __init__(self):
-        self.client = redis.Redis(**REDIS_CONFIG)
+    def __init__(self) -> None:
+        self.client: redis.Redis[str] = redis.Redis(**REDIS_CONFIG)
 
     def get_json(self, key: str) -> Optional[Any]:
-        """Get JSON data from Redis."""
-        data = self.client.get(key)
+        """Get JSON data from Redis.
+
+        Args:
+            key: Redis key to retrieve
+
+        Returns:
+            Parsed JSON data or None if key doesn't exist
+        """
+        data: Optional[bytes] = self.client.get(key)
         return json.loads(data) if data else None
 
     def set_json(self, key: str, value: Any, ttl: int = CACHE_TTL) -> bool:
-        """Set JSON data in Redis with TTL."""
-        return self.client.setex(key, ttl, json.dumps(value))
-    
+        """Set JSON data in Redis with TTL.
+
+        Args:
+            key: Redis key to set
+            value: Data to store (will be JSON encoded)
+            ttl: Time to live in seconds (default: 1 hour)
+
+        Returns:
+            True if successful
+        """
+        result: bool = self.client.setex(key, ttl, json.dumps(value))
+        return result
+
     def get_cart_key(self, user_id: str) -> str:
-        """Generate the Redis key for a user's cart."""
+        """Generate the Redis key for a user's cart.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Formatted cart key
+        """
         return f"{CART_PREFIX}:{user_id}"
 
-    def add_to_cart(self, user_id: str, product_id: str, quantity: int):
-        """Add item to user's cart."""
-        cart_key = self.get_cart_key(user_id)
-        self.client.hincrby(cart_key, product_id, quantity)
-        self.client.expire(cart_key, CART_TTL)
+    def add_to_cart(self, user_id: str, product_id: str, quantity: int) -> int:
+        """Add item to user's cart (increments quantity if exists).
 
-    def update_cart_item_quantity(self, user_id: str, product_id: str, quantity: int):
-        """Set a specific quantity for a product in the cart."""
-        cart_key = self.get_cart_key(user_id)
-        self.client.hset(cart_key, product_id, str(quantity))
-        self.client.expire(cart_key, CART_TTL)
+        Args:
+            user_id: User identifier
+            product_id: Product identifier
+            quantity: Quantity to add
 
-    def remove_from_cart(self, user_id: str, product_id: str, quantity: int):
-        """Remove a product from the user's cart."""
-        cart_key = self.get_cart_key(user_id)
-        self.client.hdel(cart_key, product_id)
+        Returns:
+            New quantity value for the product
+        """
+        cart_key: str = self.get_cart_key(user_id)
+        result: int = self.client.hincrby(cart_key, product_id, quantity)
         self.client.expire(cart_key, CART_TTL)
+        return result
 
-    def get_cart(self, user_id: str) -> dict[str, int]:
-      """Retrieve user's shopping cart."""
-      cart_key = self.get_cart_key(user_id)
-      cart_data = self.client.hgetall(cart_key)
-      return {product: int(qty) for product, qty in cart_data.items()}
-    
-    def clear_cart(self, user_id: str):
-        """Clear all items from a user's cart."""
-        cart_key = self.get_cart_key(user_id)
-        self.client.delete(cart_key)
+    def add_to_hot_products(self, product_id: str, date_key: str = "today") -> float:
+        """Increment product score in hot products list.
+
+        Args:
+            product_id: Product identifier
+            date_key: Date key for organizing hot products (default: 'today')
+
+        Returns:
+            New score value
+        """
+        key: str = f"hot_products:{date_key}"
+        result: float = self.client.zincrby(key, 1, product_id)
+        self.client.expire(key, 7 * 86400)
+        return result
+
+    def get_hot_products(self, limit: int = 10, date_key: str = "today") -> List[Tuple[str, float]]:
+        """Get top products by purchase count (descending order).
+
+        Args:
+            limit: Number of products to return
+            date_key: Date key for organizing hot products (default: 'today')
+
+        Returns:
+            List of tuples (product_id, score)
+        """
+        key: str = f"hot_products:{date_key}"
+        results: List[Tuple[str, float]] = self.client.zrange(key, -limit, -1, withscores=True)
+        return results
+
+    def update_cart_item_quantity(self, user_id: str, product_id: str, quantity: int) -> int:
+        """Set a specific quantity for a product in the cart.
+
+        Args:
+            user_id: User identifier
+            product_id: Product identifier
+            quantity: New quantity value
+
+        Returns:
+            1 if new field was added, 0 if existing field was updated
+        """
+        cart_key: str = self.get_cart_key(user_id)
+        result: int = self.client.hset(cart_key, product_id, str(quantity))
+        self.client.expire(cart_key, CART_TTL)
+        return result
+
+    def remove_from_cart(self, user_id: str, product_id: str, quantity: int = None) -> int:
+        """Remove a product from the user's cart.
+
+        Args:
+            user_id: User identifier
+            product_id: Product identifier
+            quantity: Unused parameter (kept for API compatibility)
+
+        Returns:
+            1 if field was deleted, 0 if field didn't exist
+        """
+        cart_key: str = self.get_cart_key(user_id)
+        result: int = self.client.hdel(cart_key, product_id)
+        self.client.expire(cart_key, CART_TTL)
+        return result
+
+    def get_cart(self, user_id: str) -> Dict[str, int]:
+        """Retrieve user's shopping cart.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            Dictionary mapping product_id to quantity
+        """
+        cart_key: str = self.get_cart_key(user_id)
+        cart_data: Dict[str, bytes] = self.client.hgetall(cart_key)
+        return {product.decode(): int(qty) for product, qty in cart_data.items()}
+
+    def clear_cart(self, user_id: str) -> int:
+        """Clear all items from a user's cart.
+
+        Args:
+            user_id: User identifier
+
+        Returns:
+            1 if key was deleted, 0 if key didn't exist
+        """
+        cart_key: str = self.get_cart_key(user_id)
+        result: int = self.client.delete(cart_key)
+        return result
 
     def rate_limit_check(self, user_id: str, endpoint: str) -> bool:
-        """Check if user has exceeded rate limit."""
-        rate_limit_id = f"{RATE_LIMIT_PREFIX}:{user_id}:{endpoint}"
-        count = self.client.incr(rate_limit_id)
+        """Check if user has exceeded rate limit.
+
+        Args:
+            user_id: User identifier
+            endpoint: API endpoint name
+
+        Returns:
+            True if under limit, False if exceeded
+        """
+        rate_limit_id: str = f"{RATE_LIMIT_PREFIX}:{user_id}:{endpoint}"
+        count: int = self.client.incr(rate_limit_id)
 
         if count == 1:
             self.client.expire(rate_limit_id, RATE_LIMIT_WINDOW)
 
         return count <= RATE_LIMIT_REQUESTS
-    
-    def cache_product_view(self, product_id: str, product_data: dict, ttl: int = CACHE_TTL):
-        """Cache full product info with TTL."""
-        key = f"{PRODUCT_PREFIX}:{product_id}"
-        self.set_json(key, product_data, ttl)
 
-    def get_cached_product(self, product_id: str):
-        """Get cached product or None."""
-        key = f"{PRODUCT_PREFIX}:{product_id}"
-        return self.get_json(key)
-    
-    def cache_recommendations(self, user_id: str, recommendations: list, ttl: int = RECOMMENDATIONS_TTL):
-        """Cache recommendations with full product details."""
-        key = f"{RECOMMENDATIONS_PREFIX}:{user_id}"
-        self.set_json(key, recommendations, ttl)
+    def increment_cache_metric(self, metric_name: str) -> int:
+        """Increment a cache metric counter.
 
-    def get_recommendations(self, user_id: str):
-        """Get cached recommendations ready to show."""
-        key = f"{RECOMMENDATIONS_PREFIX}:{user_id}"
-        return self.get_json(key)
-    
-    def increment_cache_metric(self, metric_name: str):
-        """Increment a cache metric"""
-        self.client.incr(f"cache_metrics:{metric_name}")
+        Args:
+            metric_name: Name of the metric (e.g., 'search_hits')
 
-    def get_cache_metrics(self) -> dict[str, int]:
-        """Get all cache metrics like hits and misses by scanning keys."""
-        metrics = {}
+        Returns:
+            New metric value
+        """
+        result: int = self.client.incr(f"cache_metrics:{metric_name}")
+        return result
+
+    def get_cache_metrics(self) -> Dict[str, int]:
+        """Get all cache metrics like hits and misses by scanning keys.
+
+        Returns:
+            Dictionary mapping metric names to their values
+        """
+        metrics: Dict[str, int] = {}
         for key in self.client.scan_iter("cache_metrics:*"):
-            metric_name = key.split(":", 1)[1]
-            value = self.client.get(key)
+            metric_name: str = key.split(":", 1)[1]
+            value: Optional[bytes] = self.client.get(key)
             metrics[metric_name] = int(value) if value else 0
         return metrics
+
+
+redis_client: RedisClient = RedisClient()
         
 
 

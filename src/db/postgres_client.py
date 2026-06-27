@@ -1,27 +1,38 @@
 """PostgreSQL connection and utilities."""
 
 from contextlib import contextmanager
+from typing import Any, Dict, Generator, List, Optional
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
 
 from src.config import POSTGRES_CONFIG
 
-Base = declarative_base()
+# SQLAlchemy declarative base
+try:
+    from sqlalchemy.ext.declarative import declarative_base
+
+    Base = declarative_base()
+except ImportError:
+    from sqlalchemy.orm import declarative_base
+
+    Base = declarative_base()
 
 
 class PostgresConnection:
-    def __init__(self):
-        self.config = POSTGRES_CONFIG
-        self._engine = None
-        self._session_factory = None
+    def __init__(self) -> None:
+        self.config: Dict[str, Any] = POSTGRES_CONFIG
+        self._engine: Optional[Engine] = None
+        self._session_factory: Optional[sessionmaker] = None
 
     @property
-    def engine(self):
+    def engine(self) -> Engine:
+        """Get or create SQLAlchemy engine."""
         if not self._engine:
-            db_url = (
+            db_url: str = (
                 f"postgresql://{self.config['user']}:{self.config['password']}@"
                 f"{self.config['host']}:{self.config['port']}/{self.config['database']}"
             )
@@ -29,15 +40,20 @@ class PostgresConnection:
         return self._engine
 
     @property
-    def session_factory(self):
+    def session_factory(self) -> sessionmaker:
+        """Get or create session factory."""
         if not self._session_factory:
             self._session_factory = sessionmaker(bind=self.engine)
         return self._session_factory
 
     @contextmanager
-    def get_cursor(self):
-        """Get a database cursor for raw SQL queries."""
-        conn = psycopg2.connect(**self.config)
+    def get_cursor(self) -> Generator[RealDictCursor, None, None]:
+        """Get a database cursor for raw SQL queries.
+
+        Yields:
+            RealDictCursor: Cursor that returns rows as dictionaries
+        """
+        conn: psycopg2.extensions.connection = psycopg2.connect(**self.config)
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 yield cursor
@@ -48,9 +64,9 @@ class PostgresConnection:
         finally:
             conn.close()
 
-    def create_tables(self):
+    def create_tables(self) -> None:
         """Create all tables in the database."""
-        queries = [
+        queries: List[str] = [
             """
             CREATE EXTENSION IF NOT EXISTS vector;
             """,
@@ -143,8 +159,16 @@ class PostgresConnection:
             for query in queries:
                 cursor.execute(query)
 
-    def find_similar_products(self, product_id: str, limit: int = 5):
-        """Find similar products using vector similarity search."""
+    def find_similar_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Find similar products using vector similarity search.
+
+        Args:
+            product_id: Target product ID
+            limit: Maximum number of results
+
+        Returns:
+            List of similar products with similarity scores
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -160,12 +184,20 @@ class PostgresConnection:
                 ORDER BY pe.embedding <=> pe2.embedding
                 LIMIT %s
                 """,
-                (product_id, product_id, limit)
+                (product_id, product_id, limit),
             )
             return cursor.fetchall()
-        
-    def full_text_search(self, query: str, limit: int = 10):
-        """Full-text search across product names and descriptions."""
+
+    def full_text_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Full-text search across product names and descriptions.
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results
+
+        Returns:
+            List of matching products
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -190,8 +222,16 @@ class PostgresConnection:
             )
             return cursor.fetchall()
         
-    def search_by_name(self, name: str, limit: int = 10):
-        """Search products by name (case-insensitive)."""
+    def search_by_name(self, name: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search products by name (case-insensitive).
+
+        Args:
+            name: Product name or partial name to search
+            limit: Maximum number of results
+
+        Returns:
+            List of matching products with category and seller info
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -205,12 +245,20 @@ class PostgresConnection:
                 ORDER BY p.name ASC
                 LIMIT %s
                 """,
-                (f'%{name}%', limit)
+                (f"%{name}%", limit),
             )
             return cursor.fetchall()
 
-    def search_by_tags(self, tags: list, limit: int = 10):
-        """Search products that have ANY of the specified tags."""
+    def search_by_tags(self, tags: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+        """Search products that have ANY of the specified tags.
+
+        Args:
+            tags: List of tags to search for
+            limit: Maximum number of results
+
+        Returns:
+            List of products with matching tags
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -224,12 +272,20 @@ class PostgresConnection:
                 ORDER BY p.name ASC
                 LIMIT %s
                 """,
-                (tags, limit)
+                (tags, limit),
             )
             return cursor.fetchall()
 
-    def filter_by_category(self, category_id: str, limit: int = 20):
-        """Filter products by category."""
+    def filter_by_category(self, category_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Filter products by category.
+
+        Args:
+            category_id: Category identifier
+            limit: Maximum number of results
+
+        Returns:
+            List of products in the category sorted by price
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -243,12 +299,23 @@ class PostgresConnection:
                 ORDER BY p.price ASC
                 LIMIT %s
                 """,
-                (category_id, limit)
+                (category_id, limit),
             )
             return cursor.fetchall()
 
-    def filter_by_price(self, min_price: float = 0, max_price: float = float('inf'), limit: int = 20):
-        """Filter products by price range."""
+    def filter_by_price(
+        self, min_price: float = 0, max_price: float = float("inf"), limit: int = 20
+    ) -> List[Dict[str, Any]]:
+        """Filter products by price range.
+
+        Args:
+            min_price: Minimum price (inclusive)
+            max_price: Maximum price (inclusive)
+            limit: Maximum number of results
+
+        Returns:
+            List of products in price range sorted by price
+        """
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -264,7 +331,25 @@ class PostgresConnection:
                 ORDER BY p.price ASC
                 LIMIT %s
                 """,
-                (min_price, max_price, limit)
+                (min_price, max_price, limit),
+            )
+            return cursor.fetchall()
+        
+
+    def semantic_search(self, embedding: list, limit: int = 10) -> List[Dict[str, Any]]:
+        """Search products using semantic similarity."""
+
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT p.*,
+                    1 - (pe.embedding <=> %s::vector) as similarity
+                FROM products p
+                JOIN product_embeddings pe ON p.id = pe.product_id
+                ORDER BY pe.embedding <=> %s::vector
+                LIMIT %s;
+                """,
+                (embedding, embedding, limit),
             )
             return cursor.fetchall()
 

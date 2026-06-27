@@ -1,34 +1,51 @@
 """Neo4j connection and utilities."""
 
-from neo4j import GraphDatabase
-from typing import List, Dict, Any
-from src.config import NEO4J_CONFIG
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from neo4j import GraphDatabase
+from neo4j.driver import Driver, Session
+
+from src.config import NEO4J_CONFIG
+
 
 class Neo4jClient:
-    def __init__(self):
-        self.driver = GraphDatabase.driver(NEO4J_CONFIG["uri"], auth=(NEO4J_CONFIG["user"], NEO4J_CONFIG["password"]))
+    def __init__(self) -> None:
+        self.driver: Driver = GraphDatabase.driver(
+            NEO4J_CONFIG["uri"], auth=(NEO4J_CONFIG["user"], NEO4J_CONFIG["password"])
+        )
 
-    def close(self):
+    def close(self) -> None:
+        """Close the Neo4j driver connection."""
         self.driver.close()
 
-    def create_constraints(self):
+    def create_constraints(self) -> None:
         """Create uniqueness and existence constraints."""
         with self.driver.session() as session:
             # Uniqueness constraints (also create indexes)
             session.run("CREATE CONSTRAINT user_id IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE")
             session.run("CREATE CONSTRAINT product_id IF NOT EXISTS FOR (p:Product) REQUIRE p.id IS UNIQUE")
-            session.run("CREATE CONSTRAINT category_id IF NOT EXISTS FOR (c:Category) REQUIRE c.id IS UNIQUE")
+            session.run(
+                "CREATE CONSTRAINT category_id IF NOT EXISTS FOR (c:Category) REQUIRE c.id IS UNIQUE"
+            )
 
             # Property existence constraints
             session.run("CREATE CONSTRAINT user_name IF NOT EXISTS FOR (u:User) REQUIRE u.name IS NOT NULL")
-            session.run("CREATE CONSTRAINT product_name IF NOT EXISTS FOR (p:Product) REQUIRE p.name IS NOT NULL")
-            session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS NOT NULL")
+            session.run(
+                "CREATE CONSTRAINT product_name IF NOT EXISTS FOR (p:Product) REQUIRE p.name IS NOT NULL"
+            )
+            session.run(
+                "CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS NOT NULL"
+            )
             print("Neo4j constraints created.")
 
+    def add_view_relationship(self, user_id: str, product_id: str) -> None:
+        """Add a VIEWED relationship between user and product.
 
-    def add_view_relationship(self, user_id: str, product_id: str):
-        """Add a VIEWED relationship."""
+        Args:
+            user_id: User node identifier
+            product_id: Product node identifier
+        """
         with self.driver.session() as session:
             session.run(
                 """
@@ -41,8 +58,13 @@ class Neo4jClient:
                 timestamp=datetime.now().isoformat(),
             )
 
-    def add_product_creation_relationship(self, seller_id: str, product_id: str):
-        """Add a CREATED relationship."""
+    def add_product_creation_relationship(self, seller_id: str, product_id: str) -> None:
+        """Add a CREATED relationship between seller and product.
+
+        Args:
+            seller_id: Seller node identifier
+            product_id: Product node identifier
+        """
         with self.driver.session() as session:
             session.run(
                 """
@@ -55,8 +77,13 @@ class Neo4jClient:
                 timestamp=datetime.now().isoformat(),
             )
 
-    def add_belongs_to_category_relationship(self, category_id: str, product_id: str):
-        """Add a BELONGS_TO relationship between product and category."""
+    def add_belongs_to_category_relationship(self, category_id: str, product_id: str) -> None:
+        """Add a BELONGS_TO relationship between product and category.
+
+        Args:
+            category_id: Category node identifier
+            product_id: Product node identifier
+        """
         with self.driver.session() as session:
             session.run(
                 """
@@ -65,11 +92,16 @@ class Neo4jClient:
                 CREATE (p)-[:BELONGS_TO]->(c)
                 """,
                 category_id=category_id,
-                product_id=product_id
+                product_id=product_id,
             )
 
-    def add_similar_to_relationship(self, product1_id: str, product2_id: str):
-        """Add a SIMILAR_TO relationship between products."""
+    def add_similar_to_relationship(self, product1_id: str, product2_id: str) -> None:
+        """Add a SIMILAR_TO relationship between products.
+
+        Args:
+            product1_id: First product identifier
+            product2_id: Second product identifier
+        """
         with self.driver.session() as session:
             session.run(
                 """
@@ -78,14 +110,19 @@ class Neo4jClient:
                 CREATE (p1)-[:SIMILAR_TO]->(p2)
                 """,
                 product1_id=product1_id,
-                product2_id=product2_id
+                product2_id=product2_id,
             )
 
+    def add_purchase_relationship(self, user_id: str, product_id: str, quantity: int, date: str) -> None:
+        """Add a PURCHASED relationship between user and product.
 
-    def add_purchase_relationship(self, user_id: str, product_id: str, quantity: int, date: str):
-        """Add a PURCHASED relationship."""
+        Args:
+            user_id: User node identifier
+            product_id: Product node identifier
+            quantity: Number of items purchased
+            date: Date of purchase (ISO format string)
+        """
         with self.driver.session() as session:
-            
             session.run(
                 """
                 MATCH (u:User {id: $user_id})
@@ -99,12 +136,17 @@ class Neo4jClient:
             )
 
     def get_recommendations(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Get product recommendations for a user."""
+        """Get product recommendations for a user based on collaborative filtering.
 
+        Args:
+            user_id: User identifier
+            limit: Maximum number of recommendations
+
+        Returns:
+            List of recommended products
+        """
         with self.driver.session() as session:
-
             result = session.run(
-
                 """
                 MATCH (target:User {id: $user_id})-[:PURCHASED]->(p:Product)<-[:PURCHASED]-(other:User)
                 MATCH (other)-[:PURCHASED]->(rec:Product)
@@ -118,10 +160,17 @@ class Neo4jClient:
                 limit=limit,
             )
             return [record.data() for record in result]
-        
 
-    def get_also_bought_products(self, product_id: str, limit: int = 5):
-        """Get products that are frequently bought by users who purchased a specific product."""
+    def get_also_bought_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get products frequently bought by users who purchased a specific product.
+
+        Args:
+            product_id: Product identifier
+            limit: Maximum number of results
+
+        Returns:
+            List of frequently bought products
+        """
         with self.driver.session() as session:
             result = session.run(
                 """
@@ -134,32 +183,43 @@ class Neo4jClient:
                 RETURN rec.id as product_id, rec.name as product_name
                 """,
                 product_id=product_id,
-                limit=limit
+                limit=limit,
             )
             return [record.data() for record in result]
-        
-    
-    def get_products_frequently_bought_together(self, limit: int = 10):
 
-         with self.driver.session() as session:
+    def get_products_frequently_bought_together(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get product pairs that are frequently bought together.
+
+        Args:
+            limit: Maximum number of pairs
+
+        Returns:
+            List of product pair combinations
+        """
+        with self.driver.session() as session:
             result = session.run(
-            """
-            MATCH (p1:Product)<-[:PURCHASED]-(u:User)-[:PURCHASED]->(p2:Product)
-            WHERE p1.id <> p2.id
-            WITH p1, p2, count(u) AS purchase_count
-            ORDER by purchase_count DESC
-            LIMIT $limit
-            RETURN p1 as product1, p2 as product2
-            """, 
-            limit=limit
+                """
+                MATCH (p1:Product)<-[:PURCHASED]-(u:User)-[:PURCHASED]->(p2:Product)
+                WHERE p1.id <> p2.id
+                WITH p1, p2, count(u) AS purchase_count
+                ORDER by purchase_count DESC
+                LIMIT $limit
+                RETURN p1 as product1, p2 as product2
+                """,
+                limit=limit,
             )
-
             return [record.data() for record in result]
 
-        
+    def get_other_products_from_same_seller(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get other products from the same seller as a user's purchased product.
 
-    def get_other_products_from_same_seller(self, user_id: str, limit: int = 5):
-        """Get other products from the same seller as a user's purchased product."""
+        Args:
+            user_id: User identifier
+            limit: Maximum number of results
+
+        Returns:
+            List of products from same seller
+        """
         with self.driver.session() as session:
             result = session.run(
                 """
@@ -173,12 +233,9 @@ class Neo4jClient:
                 RETURN other as product
                 """,
                 user_id=user_id,
-                limit=limit
+                limit=limit,
             )
             return [record.data() for record in result]
 
 
-
-
-# Singleton instance
-neo4j_client = Neo4jClient()
+neo4j_client: Neo4jClient = Neo4jClient()
