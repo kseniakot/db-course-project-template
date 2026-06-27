@@ -19,6 +19,7 @@ class DataParser:
             DataFrame with product data (price as float, tags as list)
         """
         df: pd.DataFrame = pd.read_csv(DATA_DIR / "products.csv")
+        df.columns = df.columns.str.lower()
         df["price"] = df["price"].astype(float)
         df["tags"] = df["tags"].apply(lambda x: x.split(","))
         return df
@@ -31,6 +32,7 @@ class DataParser:
             DataFrame with user data (interests as list, join_date as datetime)
         """
         df: pd.DataFrame = pd.read_csv(DATA_DIR / "users.csv")
+        df.columns = df.columns.str.lower()
         df["interests"] = df["interests"].apply(lambda x: x.split(","))
         df["join_date"] = pd.to_datetime(df["join_date"])
         return df
@@ -42,7 +44,9 @@ class DataParser:
         Returns:
             DataFrame with category data
         """
-        return pd.read_csv(DATA_DIR / "categories.csv")
+        df: pd.DataFrame = pd.read_csv(DATA_DIR / "categories.csv")
+        df.columns = df.columns.str.lower()
+        return df
 
     @staticmethod
     def parse_sellers() -> pd.DataFrame:
@@ -52,6 +56,7 @@ class DataParser:
             DataFrame with seller data (rating as float, joined as datetime)
         """
         df: pd.DataFrame = pd.read_csv(DATA_DIR / "sellers.csv")
+        df.columns = df.columns.str.lower()
         df["rating"] = df["rating"].astype(float)
         df["joined"] = pd.to_datetime(df["joined"])
         return df
