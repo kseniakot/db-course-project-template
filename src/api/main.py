@@ -1,6 +1,5 @@
 """FastAPI application entry point for ArtisanMarket."""
 
-from typing import Dict
 
 from fastapi import FastAPI
 
@@ -13,7 +12,7 @@ app = FastAPI(title="ArtisanMarket API", version="1.0")
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     """Liveness check."""
     return {"status": "ok"}
 

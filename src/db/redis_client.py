@@ -1,19 +1,18 @@
 """Redis connection and utilities."""
 
 import json
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import redis
 
 from src.config import (
+    CACHE_METRICS_TTL,
     CACHE_TTL,
     CART_TTL,
+    HOT_PRODUCTS_TTL,
     RATE_LIMIT_REQUESTS,
     RATE_LIMIT_WINDOW,
-    RECOMMENDATIONS_TTL,
     REDIS_CONFIG,
-    HOT_PRODUCTS_TTL,
-    CACHE_METRICS_TTL
 )
 from src.logging_config import get_logger
 
@@ -100,7 +99,7 @@ class RedisClient:
         self.client.expire(key, HOT_PRODUCTS_TTL)
         return result
 
-    def get_hot_products(self, date_key: str, limit: int = 10,) -> List[Tuple[str, float]]:
+    def get_hot_products(self, date_key: str, limit: int = 10,) -> list[tuple[str, float]]:
         """Get top products by purchase count.
 
         Args:
@@ -112,7 +111,7 @@ class RedisClient:
         """
         key = f"hot_products:{date_key}"
         results = self.client.zrange(key, 0, -1, desc=True,  withscores=True)
-       
+
         return results[-limit:]
 
     def update_cart_item_quantity(self, user_id: str, product_id: str, quantity: int) -> int:
@@ -147,7 +146,7 @@ class RedisClient:
         self.client.expire(cart_key, CART_TTL)
         return result
 
-    def get_cart(self, user_id: str) -> Dict[str, int]:
+    def get_cart(self, user_id: str) -> dict[str, int]:
         """Retrieve user's shopping cart.
 
         Args:
@@ -157,7 +156,7 @@ class RedisClient:
             Dictionary mapping product_id to quantity
         """
         cart_key: str = self.get_cart_key(user_id)
-        cart_data: Dict[str, bytes] = self.client.hgetall(cart_key)
+        cart_data: dict[str, bytes] = self.client.hgetall(cart_key)
         return {product.decode(): int(qty) for product, qty in cart_data.items()}
 
     def clear_cart(self, user_id: str) -> int:
@@ -205,13 +204,13 @@ class RedisClient:
         self.client.expire(key, ttl, nx=True)
         return result
 
-    def get_cache_metrics(self) -> Dict[str, int]:
+    def get_cache_metrics(self) -> dict[str, int]:
         """Get all cache metrics like hits and misses by scanning keys.
 
         Returns:
             Dictionary mapping metric names to their values
         """
-        metrics: Dict[str, int] = {}
+        metrics: dict[str, int] = {}
         for key in self.client.scan_iter("cache_metrics:*"):
             metric_name: str = key.split(":", 1)[1]
             value: bytes | None = self.client.get(key)

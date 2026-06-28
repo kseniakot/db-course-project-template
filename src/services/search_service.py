@@ -1,6 +1,6 @@
 """Search service for products with multiple search strategies."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -45,7 +45,7 @@ class SearchService:
         """Generate cache key for name search."""
         return f"{self.SEARCH_NAME_PREFIX}:{name}:{limit}"
 
-    def _get_search_tags_key(self, tags: List[str], limit: int) -> str:
+    def _get_search_tags_key(self, tags: list[str], limit: int) -> str:
         """Generate cache key for tag search."""
         tags_key: str = ",".join(sorted(tags))
         return f"{self.SEARCH_TAGS_PREFIX}:{tags_key}:{limit}"
@@ -58,7 +58,7 @@ class SearchService:
         """Generate cache key for price filter."""
         return f"{self.FILTER_PRICE_PREFIX}:{min_price}:{max_price}:{limit}"
 
-    def semantic_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def semantic_search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search products using semantic similarity.
 
         Args:
@@ -69,7 +69,7 @@ class SearchService:
             List of matching products with similarity scores
         """
         cache_key: str = self._get_semantic_search_key(query)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SEMANTIC_SEARCH_PREFIX}:hit")
             logger.debug("Cache HIT semantic_search query=%r", query)
@@ -78,13 +78,13 @@ class SearchService:
         redis_client.increment_cache_metric(f"{self.SEMANTIC_SEARCH_PREFIX}:miss")
         logger.debug("Cache MISS semantic_search query=%r (limit=%d)", query, limit)
         query_embedding: np.ndarray = self.model.encode(query)
-        result: List[Dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
+        result: list[dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
         redis_client.set_json(cache_key, result)
         logger.info("semantic_search query=%r returned %d results", query, len(result))
         return result
-    
 
-    def hybrid_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+
+    def hybrid_search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Hybrid search combining semantic and full-text with RRF ranking.
 
         Uses Reciprocal Rank Fusion to merge results from multiple sources.
@@ -98,7 +98,7 @@ class SearchService:
         """
         cache_key: str = self._get_hybrid_search_key(query)
 
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.HYBRID_SEARCH_PREFIX}:hit")
             logger.debug("Cache HIT hybrid_search query=%r", query)
@@ -108,11 +108,11 @@ class SearchService:
         logger.debug("Cache MISS hybrid_search query=%r (limit=%d)", query, limit)
 
         query_embedding: np.ndarray = self.model.encode(query)
-        semantic_results: List[Dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
-        keyword_results: List[Dict[str, Any]] = postgres_db.full_text_search(query, limit)
+        semantic_results: list[dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
+        keyword_results: list[dict[str, Any]] = postgres_db.full_text_search(query, limit)
 
         # RRF
-        rrf_scores: Dict[str, float] = {}
+        rrf_scores: dict[str, float] = {}
         k: int = 60
 
         for rank, doc in enumerate(semantic_results, 1):
@@ -123,10 +123,10 @@ class SearchService:
             doc_id: str = doc["id"]
             rrf_scores[doc_id] = rrf_scores.get(doc_id, 0) + 1 / (k + rank)
 
-        all_results: Dict[str, Dict[str, Any]] = {doc["id"]: doc for doc in semantic_results + keyword_results}
+        all_results: dict[str, dict[str, Any]] = {doc["id"]: doc for doc in semantic_results + keyword_results}
 
-        ranked_results: List[Dict[str, Any]] = sorted(
-            [all_results[doc_id] for doc_id in rrf_scores.keys()],
+        ranked_results: list[dict[str, Any]] = sorted(
+            [all_results[doc_id] for doc_id in rrf_scores],
             key=lambda x: rrf_scores[x["id"]],
             reverse=True
         )[:limit]
@@ -138,7 +138,7 @@ class SearchService:
         )
         return ranked_results
 
-    def search_by_name(self, name: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def search_by_name(self, name: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search products by name (case-insensitive).
 
         Args:
@@ -150,17 +150,17 @@ class SearchService:
         """
         cache_key: str = self._get_search_name_key(name, limit)
 
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SEARCH_NAME_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.SEARCH_NAME_PREFIX}:miss")
-        result: List[Dict[str, Any]] = postgres_db.search_by_name(name, limit)
+        result: list[dict[str, Any]] = postgres_db.search_by_name(name, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def search_by_tags(self, tags: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+    def search_by_tags(self, tags: list[str], limit: int = 10) -> list[dict[str, Any]]:
         """Search products by tags.
 
         Args:
@@ -172,17 +172,17 @@ class SearchService:
         """
         cache_key: str = self._get_search_tags_key(tags, limit)
 
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SEARCH_TAGS_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.SEARCH_TAGS_PREFIX}:miss")
-        result: List[Dict[str, Any]] = postgres_db.search_by_tags(tags, limit)
+        result: list[dict[str, Any]] = postgres_db.search_by_tags(tags, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def filter_by_category(self, category_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def filter_by_category(self, category_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Filter products by category.
 
         Args:
@@ -194,19 +194,19 @@ class SearchService:
         """
         cache_key: str = self._get_filter_category_key(category_id, limit)
 
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.FILTER_CATEGORY_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.FILTER_CATEGORY_PREFIX}:miss")
-        result: List[Dict[str, Any]] = postgres_db.filter_by_category(category_id, limit)
+        result: list[dict[str, Any]] = postgres_db.filter_by_category(category_id, limit)
         redis_client.set_json(cache_key, result)
         return result
 
     def filter_by_price(
         self, min_price: float = 0, max_price: float = float("inf"), limit: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Filter products by price range.
 
         Args:
@@ -219,13 +219,13 @@ class SearchService:
         """
         cache_key: str = self._get_filter_price_key(min_price, max_price, limit)
 
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.FILTER_PRICE_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.FILTER_PRICE_PREFIX}:miss")
-        result: List[Dict[str, Any]] = postgres_db.filter_by_price(min_price, max_price, limit)
+        result: list[dict[str, Any]] = postgres_db.filter_by_price(min_price, max_price, limit)
         redis_client.set_json(cache_key, result)
         return result
 
@@ -234,5 +234,5 @@ class SearchService:
 
 
 
-        
+
 

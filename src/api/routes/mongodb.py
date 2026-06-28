@@ -1,6 +1,6 @@
 """Routes backed by MongoDB document collections."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
@@ -10,7 +10,7 @@ router = APIRouter(tags=["mongodb"])
 
 
 @router.get("/products/{product_id}/reviews")
-def product_reviews(product_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+def product_reviews(product_id: str, limit: int = 20) -> list[dict[str, Any]]:
     """Reviews for a product, newest helpful first."""
     collection = mongo_client.get_collection("reviews")
     return list(
@@ -21,7 +21,7 @@ def product_reviews(product_id: str, limit: int = 20) -> List[Dict[str, Any]]:
 
 
 @router.get("/products/{product_id}/specs")
-def product_specs(product_id: str) -> Dict[str, Any]:
+def product_specs(product_id: str) -> dict[str, Any]:
     """Specifications for a product."""
     doc = mongo_client.get_collection("product_specs").find_one(
         {"product_id": product_id}, {"_id": 0}
@@ -32,7 +32,7 @@ def product_specs(product_id: str) -> Dict[str, Any]:
 
 
 @router.get("/sellers/{seller_id}/profile")
-def seller_profile(seller_id: str) -> Dict[str, Any]:
+def seller_profile(seller_id: str) -> dict[str, Any]:
     """Rich profile for a seller."""
     doc = mongo_client.get_collection("seller_profiles").find_one(
         {"seller_id": seller_id}, {"_id": 0}
@@ -43,7 +43,7 @@ def seller_profile(seller_id: str) -> Dict[str, Any]:
 
 
 @router.get("/users/{user_id}/preferences")
-def user_preferences(user_id: str) -> Dict[str, Any]:
+def user_preferences(user_id: str) -> dict[str, Any]:
     """Stored preferences for a user."""
     doc = mongo_client.get_collection("user_preferences").find_one(
         {"user_id": user_id}, {"_id": 0}

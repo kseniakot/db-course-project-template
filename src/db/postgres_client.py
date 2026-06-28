@@ -1,7 +1,8 @@
 """PostgreSQL connection and utilities."""
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List
+from typing import Any
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -31,7 +32,7 @@ except ImportError:
 
 class PostgresConnection:
     def __init__(self) -> None:
-        self.config: Dict[str, Any] = POSTGRES_CONFIG
+        self.config: dict[str, Any] = POSTGRES_CONFIG
         self._engine: Engine | None = None
         self._session_factory: sessionmaker | None = None
         self._pool: ThreadedConnectionPool | None = None
@@ -86,7 +87,7 @@ class PostgresConnection:
 
     def create_tables(self) -> None:
         """Create all tables in the database."""
-        queries: List[str] = [
+        queries: list[str] = [
             """
             CREATE EXTENSION IF NOT EXISTS vector;
             """,
@@ -181,7 +182,7 @@ class PostgresConnection:
                 cursor.execute(query)
         logger.info("PostgreSQL schema ready")
 
-    def get_product_by_id(self, product_id: str) -> Dict[str, Any] | None:
+    def get_product_by_id(self, product_id: str) -> dict[str, Any] | None:
         """Fetch a single product by its exact id.
 
         Args:
@@ -201,7 +202,7 @@ class PostgresConnection:
             )
             return cursor.fetchone()
 
-    def find_similar_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def find_similar_products(self, product_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Find similar products using vector similarity search.
 
         Args:
@@ -230,7 +231,7 @@ class PostgresConnection:
             )
             return cursor.fetchall()
 
-    def full_text_search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def full_text_search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Full-text search across product names and descriptions.
 
         Args:
@@ -263,8 +264,8 @@ class PostgresConnection:
                 (query, limit)
             )
             return cursor.fetchall()
-        
-    def search_by_name(self, name: str, limit: int = 10) -> List[Dict[str, Any]]:
+
+    def search_by_name(self, name: str, limit: int = 10) -> list[dict[str, Any]]:
         """Search products by name (case-insensitive).
 
         Args:
@@ -291,7 +292,7 @@ class PostgresConnection:
             )
             return cursor.fetchall()
 
-    def search_by_tags(self, tags: List[str], limit: int = 10) -> List[Dict[str, Any]]:
+    def search_by_tags(self, tags: list[str], limit: int = 10) -> list[dict[str, Any]]:
         """Search products that have ANY of the specified tags.
 
         Args:
@@ -318,7 +319,7 @@ class PostgresConnection:
             )
             return cursor.fetchall()
 
-    def filter_by_category(self, category_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def filter_by_category(self, category_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Filter products by category.
 
         Args:
@@ -347,7 +348,7 @@ class PostgresConnection:
 
     def filter_by_price(
         self, min_price: float = 0, max_price: float = float("inf"), limit: int = 20
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Filter products by price range.
 
         Args:
@@ -376,9 +377,9 @@ class PostgresConnection:
                 (min_price, max_price, limit),
             )
             return cursor.fetchall()
-        
 
-    def semantic_search(self, embedding: list, limit: int = 10) -> List[Dict[str, Any]]:
+
+    def semantic_search(self, embedding: list, limit: int = 10) -> list[dict[str, Any]]:
         """Search products using semantic similarity."""
         logger.debug("Semantic search (limit=%d)", limit)
         with self.get_cursor() as cursor:

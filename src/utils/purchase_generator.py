@@ -2,7 +2,7 @@
 
 import random
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import pandas as pd
 from sentence_transformers import SentenceTransformer
@@ -34,12 +34,12 @@ class PurchaseGenerator:
         self.users: pd.DataFrame = self.parser.parse_users()
         self.products: pd.DataFrame = self.parser.parse_products()
         self.model: SentenceTransformer = SentenceTransformer(model_name)
-        self.product_ids: List[str] = self.products["id"].tolist()
-        self.price_map: Dict[str, float] = dict(
-            zip(self.products["id"], self.products["price"])
+        self.product_ids: list[str] = self.products["id"].tolist()
+        self.price_map: dict[str, float] = dict(
+            zip(self.products["id"], self.products["price"], strict=False)
         )
 
-    def _affinity_pool(self, interests: List[str]) -> List[Tuple[str, float]]:
+    def _affinity_pool(self, interests: list[str]) -> list[tuple[str, float]]:
         """Rank all products by semantic similarity to a user's interests.
 
         Args:
@@ -49,7 +49,7 @@ class PurchaseGenerator:
             List of (product_id, weight) where weight = 1 + AFFINITY_WEIGHT * similarity
         """
         embedding = self.model.encode(", ".join(interests))
-        ranked: List[Dict[str, Any]] = db.semantic_search(
+        ranked: list[dict[str, Any]] = db.semantic_search(
             embedding.tolist(), limit=len(self.product_ids)
         )
         return [
@@ -57,11 +57,11 @@ class PurchaseGenerator:
             for row in ranked
         ]
 
-    def _weighted_sample(self, pool: List[Tuple[str, float]], k: int) -> List[str]:
+    def _weighted_sample(self, pool: list[tuple[str, float]], k: int) -> list[str]:
         """Sample k distinct product ids from a weighted pool without replacement."""
-        items: List[str] = [pid for pid, _ in pool]
-        weights: List[float] = [w for _, w in pool]
-        chosen: List[str] = []
+        items: list[str] = [pid for pid, _ in pool]
+        weights: list[float] = [w for _, w in pool]
+        chosen: list[str] = []
 
         for _ in range(min(k, len(items))):
             idx: int = random.choices(range(len(items)), weights=weights, k=1)[0]
@@ -91,18 +91,18 @@ class PurchaseGenerator:
         Returns:
             DataFrame of purchase line items with per-order total price
         """
-        pools: Dict[str, List[Tuple[str, float]]] = {
+        pools: dict[str, list[tuple[str, float]]] = {
             user["id"]: self._affinity_pool(user["interests"])
             for _, user in self.users.iterrows()
         }
-        user_records: List[Dict[str, Any]] = self.users.to_dict("records")
+        user_records: list[dict[str, Any]] = self.users.to_dict("records")
 
-        purchases: List[Dict[str, Any]] = []
+        purchases: list[dict[str, Any]] = []
         order_num: int = 0
 
         while len(purchases) < target_line_items:
             order_num += 1
-            user: Dict[str, Any] = random.choice(user_records)
+            user: dict[str, Any] = random.choice(user_records)
             order_id: str = f"O{order_num:04d}"
             order_date: datetime = self._order_date(user["join_date"])
             status: str = random.choice(ORDER_STATUSES)
@@ -126,14 +126,14 @@ class PurchaseGenerator:
         order_totals.name = "total_price"
         return purchases_df.merge(order_totals, on="order_id")
 
-    def _build_viewed(self, purchases_df: pd.DataFrame) -> List[Tuple[str, str]]:
+    def _build_viewed(self, purchases_df: pd.DataFrame) -> list[tuple[str, str]]:
         """Derive VIEWED pairs: every purchased product plus a few extra browsed ones."""
-        viewed: List[Tuple[str, str]] = []
+        viewed: list[tuple[str, str]] = []
 
         for user_id, group in purchases_df.groupby("user_id"):
             bought: set = set(group["product_id"])
-            not_bought: List[str] = [pid for pid in self.product_ids if pid not in bought]
-            extras: List[str] = random.sample(
+            not_bought: list[str] = [pid for pid in self.product_ids if pid not in bought]
+            extras: list[str] = random.sample(
                 not_bought, k=min(random.randint(2, 5), len(not_bought))
             )
             for product_id in bought.union(extras):
@@ -180,7 +180,7 @@ class PurchaseGenerator:
                 date=item["order_date"].isoformat(),
             )
 
-        viewed: List[Tuple[str, str]] = self._build_viewed(purchases_df)
+        viewed: list[tuple[str, str]] = self._build_viewed(purchases_df)
         for user_id, product_id in viewed:
             neo4j_client.add_view_relationship(user_id, product_id)
 

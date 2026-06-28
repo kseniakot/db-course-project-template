@@ -1,6 +1,5 @@
 """Load vector embeddings into pgvector."""
 
-from typing import Tuple
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -22,7 +21,7 @@ class VectorLoader:
         self.model: SentenceTransformer = SentenceTransformer(model_name)
         self.parser: DataParser = DataParser()
 
-    def generate_embeddings(self) -> Tuple[int, int]:
+    def generate_embeddings(self) -> tuple[int, int]:
         """Generate embeddings for all product descriptions.
 
         Returns:

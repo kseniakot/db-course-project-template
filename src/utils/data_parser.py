@@ -1,6 +1,5 @@
 """Utilities for parsing CSV data."""
 
-from pathlib import Path
 from typing import override
 
 import pandas as pd

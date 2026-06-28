@@ -2,7 +2,7 @@
 
 import random
 from datetime import datetime, timedelta
-from typing import Any, Dict, List
+from typing import Any
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ logger = get_logger(__name__)
 RANDOM_SEED = 42
 BASE_DATE = datetime(2026, 1, 1)
 
-REVIEW_TITLES: Dict[int, List[str]] = {
+REVIEW_TITLES: dict[int, list[str]] = {
     5: ["Absolutely love it!", "Exceeded expectations", "Best purchase this year"],
     4: ["Really good", "Happy with it", "Solid quality"],
     3: ["It's okay", "Decent but not great", "Average"],
@@ -23,7 +23,7 @@ REVIEW_TITLES: Dict[int, List[str]] = {
     1: ["Would not recommend", "Poor quality", "Waste of money"],
 }
 
-REVIEW_CONTENT: Dict[int, List[str]] = {
+REVIEW_CONTENT: dict[int, list[str]] = {
     5: ["The craftsmanship is stunning and it arrived well packaged.",
         "Exactly as described, beautiful work. Will buy again."],
     4: ["Great product overall, minor imperfections but worth it.",
@@ -36,12 +36,12 @@ REVIEW_CONTENT: Dict[int, List[str]] = {
         "Not as pictured at all, returning it."],
 }
 
-COMMENT_TEXTS: List[str] = [
+COMMENT_TEXTS: list[str] = [
     "Totally agree!", "Thanks for the honest review.",
     "I had the same experience.", "Good to know before buying.",
 ]
 
-MATERIALS_BY_CATEGORY: Dict[str, List[str]] = {
+MATERIALS_BY_CATEGORY: dict[str, list[str]] = {
     "Home & Kitchen": ["Acacia wood", "Bamboo", "Ceramic", "Stainless steel"],
     "Fashion": ["Organic cotton", "Merino wool", "Linen", "Vegetable-tanned leather"],
     "Jewelry": ["Sterling silver", "14k gold", "Brass", "Natural gemstone"],
@@ -50,7 +50,7 @@ MATERIALS_BY_CATEGORY: Dict[str, List[str]] = {
     "Beauty": ["Shea butter", "Cold-pressed oils", "Beeswax", "Botanical extract"],
 }
 
-CARE_INSTRUCTIONS: List[str] = [
+CARE_INSTRUCTIONS: list[str] = [
     "Hand wash only", "Keep away from direct sunlight", "Wipe with a dry cloth",
     "Oil regularly", "Store in a cool dry place", "Do not machine wash",
 ]
@@ -67,7 +67,7 @@ class DocumentLoader:
         self.users: pd.DataFrame = self.parser.parse_users()
         self.sellers: pd.DataFrame = self.parser.parse_sellers()
         self.categories: pd.DataFrame = self.parser.parse_categories()
-        self.user_ids: List[str] = self.users["id"].tolist()
+        self.user_ids: list[str] = self.users["id"].tolist()
 
     def _random_date(self, max_days_ago: int = 365) -> datetime:
         """Return a random datetime within the last `max_days_ago` days."""
@@ -78,11 +78,11 @@ class DocumentLoader:
         collection = mongo_client.get_collection("reviews")
         collection.delete_many({})
 
-        documents: List[Dict[str, Any]] = []
+        documents: list[dict[str, Any]] = []
         for _, product in self.products.iterrows():
             for _ in range(random.randint(1, 4)):
                 rating: int = random.choices([5, 4, 3, 2, 1], weights=[40, 30, 15, 10, 5])[0]
-                comments: List[Dict[str, Any]] = [
+                comments: list[dict[str, Any]] = [
                     {
                         "user_id": random.choice(self.user_ids),
                         "content": random.choice(COMMENT_TEXTS),
@@ -110,10 +110,10 @@ class DocumentLoader:
         collection = mongo_client.get_collection("product_specs")
         collection.delete_many({})
 
-        documents: List[Dict[str, Any]] = []
+        documents: list[dict[str, Any]] = []
         for _, product in self.products.iterrows():
             category: str = product["category"]
-            materials: List[str] = MATERIALS_BY_CATEGORY.get(category, ["Mixed materials"])
+            materials: list[str] = MATERIALS_BY_CATEGORY.get(category, ["Mixed materials"])
             documents.append({
                 "product_id": product["id"],
                 "category": category,
@@ -138,12 +138,12 @@ class DocumentLoader:
         collection = mongo_client.get_collection("seller_profiles")
         collection.delete_many({})
 
-        documents: List[Dict[str, Any]] = []
+        documents: list[dict[str, Any]] = []
         for _, seller in self.sellers.iterrows():
-            seller_products: List[str] = self.products[
+            seller_products: list[str] = self.products[
                 self.products["seller_id"] == seller["id"]
             ]["name"].tolist()
-            portfolio: List[Dict[str, str]] = [
+            portfolio: list[dict[str, str]] = [
                 {"title": name, "description": f"Handcrafted {name.lower()}."}
                 for name in seller_products[:3]
             ]
@@ -167,9 +167,9 @@ class DocumentLoader:
         collection = mongo_client.get_collection("user_preferences")
         collection.delete_many({})
 
-        category_names: List[str] = self.categories["name"].tolist()
+        category_names: list[str] = self.categories["name"].tolist()
 
-        documents: List[Dict[str, Any]] = []
+        documents: list[dict[str, Any]] = []
         for _, user in self.users.iterrows():
             min_price: int = random.randint(10, 30)
             documents.append({

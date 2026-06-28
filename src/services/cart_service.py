@@ -1,6 +1,6 @@
 """Service for managing shopping carts."""
 
-from typing import Any, Dict, List
+from typing import Any
 
 from src.db.postgres_client import db as postgres_db
 from src.db.redis_client import redis_client
@@ -59,7 +59,7 @@ class CartService:
             return self.remove_item(user_id, product_id)
         return redis_client.update_cart_item_quantity(user_id, product_id, quantity)
 
-    def get_cart(self, user_id: str) -> Dict[str, int]:
+    def get_cart(self, user_id: str) -> dict[str, int]:
         """Retrieve user's shopping cart.
 
         Args:
@@ -90,20 +90,20 @@ class CartService:
         Returns:
             Total price of all items in cart
         """
-        cart: Dict[str, int] = self.get_cart(user_id)
+        cart: dict[str, int] = self.get_cart(user_id)
         if not cart:
             return 0.0
 
         total: float = 0.0
 
         for product_id, quantity in cart.items():
-            product: Dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
+            product: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product:
                 total += product.get("price", 0) * quantity
 
         return total
 
-    def convert_cart_to_order(self, user_id: str) -> Dict[str, Any] | None:
+    def convert_cart_to_order(self, user_id: str) -> dict[str, Any] | None:
         """Convert cart to order and clear cart.
 
         Args:
@@ -112,16 +112,16 @@ class CartService:
         Returns:
             Order data with items and total, or None if cart is empty
         """
-        cart: Dict[str, int] = self.get_cart(user_id)
+        cart: dict[str, int] = self.get_cart(user_id)
         if not cart:
             logger.info("Checkout attempted on empty cart user=%s", user_id)
             return None
 
-        order_items: List[Dict[str, Any]] = []
+        order_items: list[dict[str, Any]] = []
         total_price: float = 0.0
 
         for product_id, quantity in cart.items():
-            product_data: Dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
+            product_data: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product_data:
                 price: float = product_data.get("price", 0)
                 order_items.append({
@@ -133,7 +133,7 @@ class CartService:
                 })
                 total_price += price * quantity
 
-        order: Dict[str, Any] = {
+        order: dict[str, Any] = {
             "user_id": user_id,
             "items": order_items,
             "total_price": total_price,
@@ -157,7 +157,7 @@ class CartService:
         Returns:
             Total quantity of items in cart
         """
-        cart: Dict[str, int] = self.get_cart(user_id)
+        cart: dict[str, int] = self.get_cart(user_id)
         return sum(cart.values()) if cart else 0
 
     def has_product_in_cart(self, user_id: str, product_id: str) -> bool:
@@ -170,5 +170,5 @@ class CartService:
         Returns:
             True if product is in cart, False otherwise
         """
-        cart: Dict[str, int] = self.get_cart(user_id)
+        cart: dict[str, int] = self.get_cart(user_id)
         return product_id in cart

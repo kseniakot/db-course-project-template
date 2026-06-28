@@ -2,7 +2,7 @@
 
 import math
 import random
-from typing import Any, Dict, List
+from typing import Any
 
 from src.db.neo4j_client import neo4j_client
 from src.db.postgres_client import db as postgres_db
@@ -46,7 +46,7 @@ class RecommendationService:
         """Generate cache key for personalized recommendations."""
         return f"{self.PERSONALIZED_PREFIX}:{user_id}:{limit}"
 
-    def get_collaborative_filtering(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_collaborative_filtering(self, user_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get recommendations using collaborative filtering (users who bought also bought).
 
         Args:
@@ -57,17 +57,17 @@ class RecommendationService:
             List of recommended products
         """
         cache_key: str = self._get_collab_filtering_key(user_id, limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.COLLAB_FILTERING_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.COLLAB_FILTERING_PREFIX}:miss")
-        result: List[Dict[str, Any]] = neo4j_client.get_recommendations(user_id, limit)
+        result: list[dict[str, Any]] = neo4j_client.get_recommendations(user_id, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def get_also_bought(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_also_bought(self, product_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get products frequently bought with a specific product.
 
         Args:
@@ -78,17 +78,17 @@ class RecommendationService:
             List of frequently bought products
         """
         cache_key: str = self._get_also_bought_key(product_id, limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.ALSO_BOUGHT_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.ALSO_BOUGHT_PREFIX}:miss")
-        result: List[Dict[str, Any]] = neo4j_client.get_also_bought_products(product_id, limit)
+        result: list[dict[str, Any]] = neo4j_client.get_also_bought_products(product_id, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def get_frequently_bought_together(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_frequently_bought_together(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get product pairs frequently bought together.
 
         Args:
@@ -98,17 +98,17 @@ class RecommendationService:
             List of frequently bought product pairs
         """
         cache_key: str = self._get_frequently_together_key(limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.FREQUENTLY_TOGETHER_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.FREQUENTLY_TOGETHER_PREFIX}:miss")
-        result: List[Dict[str, Any]] = neo4j_client.get_products_frequently_bought_together(limit)
+        result: list[dict[str, Any]] = neo4j_client.get_products_frequently_bought_together(limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def get_similar_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_similar_products(self, product_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get products similar to a specific product using vector similarity.
 
         Args:
@@ -119,17 +119,17 @@ class RecommendationService:
             List of similar products
         """
         cache_key: str = self._get_similar_products_key(product_id, limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SIMILAR_PRODUCTS_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.SIMILAR_PRODUCTS_PREFIX}:miss")
-        result: List[Dict[str, Any]] = postgres_db.find_similar_products(product_id, limit)
+        result: list[dict[str, Any]] = postgres_db.find_similar_products(product_id, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def get_seller_products(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_seller_products(self, user_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get other products from same seller as user's purchased products.
 
         Args:
@@ -140,17 +140,17 @@ class RecommendationService:
             List of products from same seller
         """
         cache_key: str = self._get_seller_products_key(user_id, limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SELLER_PRODUCTS_PREFIX}:hit")
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.SELLER_PRODUCTS_PREFIX}:miss")
-        result: List[Dict[str, Any]] = neo4j_client.get_other_products_from_same_seller(user_id, limit)
+        result: list[dict[str, Any]] = neo4j_client.get_other_products_from_same_seller(user_id, limit)
         redis_client.set_json(cache_key, result)
         return result
 
-    def _calculate_similarity(self, item1: Dict[str, Any], item2: Dict[str, Any]) -> float:
+    def _calculate_similarity(self, item1: dict[str, Any], item2: dict[str, Any]) -> float:
         """Calculate similarity between two items using seller and category.
 
         Formula: similarity = same_seller * 0.6 + same_category * 0.4
@@ -170,8 +170,8 @@ class RecommendationService:
 
     def _compute_mmr_score(
         self,
-        candidate: Dict[str, Any],
-        selected: List[Dict[str, Any]],
+        candidate: dict[str, Any],
+        selected: list[dict[str, Any]],
         lambda_param: float = 0.6,
     ) -> float:
         """Compute MMR (Maximum Marginal Relevance) score for a candidate.
@@ -200,12 +200,12 @@ class RecommendationService:
 
     def _sampled_mmr_select_batch(
         self,
-        candidates: List[Dict[str, Any]],
-        selected: List[Dict[str, Any]],
+        candidates: list[dict[str, Any]],
+        selected: list[dict[str, Any]],
         batch_size: int,
         lambda_param: float = 0.6,
         temperature: float = 1.0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Select a batch of items using Sampled MMR with softmax.
 
         MMR scores are computed once against the frozen `selected` set, then the
@@ -226,18 +226,18 @@ class RecommendationService:
         if not candidates:
             return []
 
-        scores: List[float] = [
+        scores: list[float] = [
             self._compute_mmr_score(c, selected, lambda_param) for c in candidates
         ]
         max_score: float = max(scores)
 
-        pool_items: List[Dict[str, Any]] = list(candidates)
-        pool_weights: List[float] = [
+        pool_items: list[dict[str, Any]] = list(candidates)
+        pool_weights: list[float] = [
             math.exp(min((score - max_score) / temperature, 100)) for score in scores
         ]
 
         draw_count: int = min(batch_size, len(pool_items))
-        batch: List[Dict[str, Any]] = []
+        batch: list[dict[str, Any]] = []
 
         for _ in range(draw_count):
             idx: int = random.choices(range(len(pool_items)), weights=pool_weights, k=1)[0]
@@ -246,7 +246,7 @@ class RecommendationService:
 
         return batch
 
-    def get_personalized_recommendations(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_personalized_recommendations(self, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """Get personalized recommendations using Sampled MMR with exponential batching.
 
         Uses Maximum Marginal Relevance with probabilistic sampling to balance
@@ -261,7 +261,7 @@ class RecommendationService:
             List of personalized product recommendations
         """
         cache_key: str = self._get_personalized_key(user_id, limit)
-        cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
+        cached_result: list[dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.PERSONALIZED_PREFIX}:hit")
             logger.debug("Cache HIT personalized user=%s", user_id)
@@ -270,10 +270,10 @@ class RecommendationService:
         redis_client.increment_cache_metric(f"{self.PERSONALIZED_PREFIX}:miss")
         logger.debug("Cache MISS personalized user=%s (limit=%d)", user_id, limit)
 
-        collab_recs: List[Dict[str, Any]] = self.get_collaborative_filtering(user_id, limit * 2)
-        seller_recs: List[Dict[str, Any]] = self.get_seller_products(user_id, limit * 2)
+        collab_recs: list[dict[str, Any]] = self.get_collaborative_filtering(user_id, limit * 2)
+        seller_recs: list[dict[str, Any]] = self.get_seller_products(user_id, limit * 2)
 
-        all_candidates: Dict[str, Dict[str, Any]] = {}
+        all_candidates: dict[str, dict[str, Any]] = {}
         for idx, rec in enumerate(collab_recs):
             rec_id: str = rec.get("product_id", "")
             all_candidates[rec_id] = {
@@ -293,13 +293,13 @@ class RecommendationService:
                     "product_name": rec.get("product_name", rec.get("name", "")),
                 }
 
-        candidates: List[Dict[str, Any]] = list(all_candidates.values())
-        selected: List[Dict[str, Any]] = []
+        candidates: list[dict[str, Any]] = list(all_candidates.values())
+        selected: list[dict[str, Any]] = []
         batch_size: int = 1
 
         while len(selected) < limit and candidates:
             take: int = min(batch_size, limit - len(selected))
-            batch: List[Dict[str, Any]] = self._sampled_mmr_select_batch(
+            batch: list[dict[str, Any]] = self._sampled_mmr_select_batch(
                 candidates,
                 selected,
                 take,

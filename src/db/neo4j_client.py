@@ -1,7 +1,7 @@
 """Neo4j connection and utilities."""
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any
 
 from neo4j import Driver, GraphDatabase
 
@@ -233,7 +233,7 @@ class Neo4jClient:
                 date=date,
             )
 
-    def get_recommendations(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_recommendations(self, user_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get product recommendations for a user based on collaborative filtering.
 
         Args:
@@ -259,7 +259,7 @@ class Neo4jClient:
             )
             return [record.data() for record in result]
 
-    def get_also_bought_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_also_bought_products(self, product_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get products frequently bought by users who purchased a specific product.
 
         Args:
@@ -285,7 +285,7 @@ class Neo4jClient:
             )
             return [record.data() for record in result]
 
-    def get_products_frequently_bought_together(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_products_frequently_bought_together(self, limit: int = 10) -> list[dict[str, Any]]:
         """Get product pairs that are frequently bought together.
 
         Args:
@@ -308,7 +308,7 @@ class Neo4jClient:
             )
             return [record.data() for record in result]
 
-    def get_other_products_from_same_seller(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_other_products_from_same_seller(self, user_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get other products from the same seller as a user's purchased product.
 
         Args:

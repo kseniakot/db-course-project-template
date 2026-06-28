@@ -1,6 +1,5 @@
 """Load nodes and relationships into Neo4j."""
 
-from typing import Dict, List
 
 import pandas as pd
 
@@ -25,7 +24,7 @@ class GraphLoader:
         self.users: pd.DataFrame = self.parser.parse_users()
         self.sellers: pd.DataFrame = self.parser.parse_sellers()
         self.categories: pd.DataFrame = self.parser.parse_categories()
-        self.category_map: Dict[str, str] = {
+        self.category_map: dict[str, str] = {
             row["name"]: row["id"] for _, row in self.categories.iterrows()
         }
 
@@ -79,7 +78,7 @@ class GraphLoader:
         same_seller * 0.6 + same_category * 0.4. Edges are created in a single
         direction per pair; queries should traverse SIMILAR_TO undirected.
         """
-        records: List[Dict] = self.products.to_dict("records")
+        records: list[dict] = self.products.to_dict("records")
         count: int = 0
 
         for i in range(len(records)):
