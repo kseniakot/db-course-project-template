@@ -1,6 +1,8 @@
 """Redis connection and utilities."""
 
 import json
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 import redis
@@ -17,6 +19,16 @@ from src.config import (
 from src.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def _json_default(obj: Any) -> Any:
+    """JSON serializer for types psycopg2 returns that json.dumps can't handle."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
 
 CART_PREFIX = "cart"
 RATE_LIMIT_PREFIX = "rate_limit"
@@ -54,7 +66,7 @@ class RedisClient:
         Returns:
             True if successful
         """
-        result: bool = self.client.setex(key, ttl, json.dumps(value))
+        result: bool = self.client.setex(key, ttl, json.dumps(value, default=_json_default))
         return result
 
     def get_cart_key(self, user_id: str) -> str:
