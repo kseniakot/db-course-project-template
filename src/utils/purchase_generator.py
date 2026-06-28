@@ -9,7 +9,10 @@ from sentence_transformers import SentenceTransformer
 
 from src.db.neo4j_client import neo4j_client
 from src.db.postgres_client import db
+from src.logging_config import get_logger, setup_logging
 from src.utils.data_parser import DataParser
+
+logger = get_logger(__name__)
 
 RANDOM_SEED = 42
 BASE_DATE = datetime(2026, 1, 1)
@@ -165,7 +168,7 @@ class PurchaseGenerator:
                      item["price_at_purchase"]),
                 )
 
-        print(f"Loaded {len(orders)} orders and {len(purchases_df)} order items into PostgreSQL")
+        logger.info(f"Loaded {len(orders)} orders and {len(purchases_df)} order items into PostgreSQL")
 
     def load_into_neo4j(self, purchases_df: pd.DataFrame) -> None:
         """Load PURCHASED and VIEWED relationships into Neo4j."""
@@ -181,17 +184,18 @@ class PurchaseGenerator:
         for user_id, product_id in viewed:
             neo4j_client.add_view_relationship(user_id, product_id)
 
-        print(f"Loaded {len(purchases_df)} PURCHASED and {len(viewed)} VIEWED relationships into Neo4j")
+        logger.info(f"Loaded {len(purchases_df)} PURCHASED and {len(viewed)} VIEWED relationships into Neo4j")
 
 
 if __name__ == "__main__":
+    setup_logging()
     generator = PurchaseGenerator()
-    print("Generating purchase data...")
+    logger.info("Generating purchase data...")
     purchases = generator.generate_purchases()
-    print(f"Generated {len(purchases)} purchase line items")
+    logger.info(f"Generated {len(purchases)} purchase line items")
 
-    print("Loading into databases...")
+    logger.info("Loading into databases...")
     generator.load_into_postgres(purchases)
     generator.load_into_neo4j(purchases)
     neo4j_client.close()
-    print("Purchase generation and loading complete!")
+    logger.info("Purchase generation and loading complete!")

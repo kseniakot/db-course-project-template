@@ -7,10 +7,14 @@ from pymongo.collection import Collection
 from pymongo.database import Database
 
 from src.config import MONGO_CONFIG
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class MongoDBClient:
     def __init__(self) -> None:
+        logger.info("Initializing MongoDB client (maxPoolSize=50)")
         self.client: MongoClient[Any] = MongoClient(MONGO_CONFIG["uri"], maxPoolSize=50)
         self.db: Database[Any] = self.client[MONGO_CONFIG["database"]]
 
@@ -44,6 +48,8 @@ class MongoDBClient:
 
         user_preferences: Collection[Any] = self.get_collection("user_preferences")
         user_preferences.create_index([("user_id", ASCENDING)], unique=True)
+
+        logger.info("MongoDB indexes created for 4 collections")
 
 
 mongo_client: MongoDBClient = MongoDBClient()

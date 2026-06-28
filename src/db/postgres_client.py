@@ -11,6 +11,9 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from src.config import POSTGRES_CONFIG
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 POOL_MIN_CONN = 1
 POOL_MAX_CONN = 10
@@ -37,6 +40,10 @@ class PostgresConnection:
     def pool(self) -> ThreadedConnectionPool:
         """Get or create the psycopg2 connection pool."""
         if not self._pool:
+            logger.info(
+                "Creating PostgreSQL connection pool (min=%d, max=%d)",
+                POOL_MIN_CONN, POOL_MAX_CONN,
+            )
             self._pool = ThreadedConnectionPool(POOL_MIN_CONN, POOL_MAX_CONN, **self.config)
         return self._pool
 
@@ -70,9 +77,10 @@ class PostgresConnection:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 yield cursor
                 conn.commit()
-        except Exception as e:
+        except Exception:
             conn.rollback()
-            raise e
+            logger.exception("PostgreSQL transaction failed, rolled back")
+            raise
         finally:
             self.pool.putconn(conn)
 
@@ -167,9 +175,11 @@ class PostgresConnection:
             """,
         ]
 
+        logger.info("Creating %d tables/indexes if not present", len(queries))
         with self.get_cursor() as cursor:
             for query in queries:
                 cursor.execute(query)
+        logger.info("PostgreSQL schema ready")
 
     def get_product_by_id(self, product_id: str) -> Dict[str, Any] | None:
         """Fetch a single product by its exact id.
@@ -370,7 +380,7 @@ class PostgresConnection:
 
     def semantic_search(self, embedding: list, limit: int = 10) -> List[Dict[str, Any]]:
         """Search products using semantic similarity."""
-
+        logger.debug("Semantic search (limit=%d)", limit)
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
@@ -384,7 +394,9 @@ class PostgresConnection:
                 """,
                 (embedding, embedding, limit),
             )
-            return cursor.fetchall()
+            results = cursor.fetchall()
+        logger.debug("Semantic search returned %d rows", len(results))
+        return results
 
 
 # Singleton instance

@@ -5,7 +5,10 @@ from typing import Dict, List
 import pandas as pd
 
 from src.db.neo4j_client import neo4j_client
+from src.logging_config import get_logger, setup_logging
 from src.utils.data_parser import DataParser
+
+logger = get_logger(__name__)
 
 SAME_SELLER_WEIGHT = 0.6
 SAME_CATEGORY_WEIGHT = 0.4
@@ -49,7 +52,7 @@ class GraphLoader:
                 product["seller_id"],
             )
 
-        print(
+        logger.info(
             f"Loaded nodes: {len(self.categories)} categories, {len(self.sellers)} sellers, "
             f"{len(self.users)} users, {len(self.products)} products"
         )
@@ -60,14 +63,14 @@ class GraphLoader:
             category_id: str = self.category_map[product["category"]]
             self.client.add_belongs_to_category_relationship(category_id, product["id"])
 
-        print(f"Loaded {len(self.products)} BELONGS_TO relationships")
+        logger.info(f"Loaded {len(self.products)} BELONGS_TO relationships")
 
     def load_created(self) -> None:
         """Create CREATED relationships from sellers to their products."""
         for _, product in self.products.iterrows():
             self.client.add_product_creation_relationship(product["seller_id"], product["id"])
 
-        print(f"Loaded {len(self.products)} CREATED relationships")
+        logger.info(f"Loaded {len(self.products)} CREATED relationships")
 
     def load_similar_to(self) -> None:
         """Create SIMILAR_TO relationships for product pairs sharing seller or category.
@@ -90,29 +93,30 @@ class GraphLoader:
                     self.client.add_similar_to_relationship(first["id"], second["id"], score)
                     count += 1
 
-        print(f"Loaded {count} SIMILAR_TO relationships")
+        logger.info(f"Loaded {count} SIMILAR_TO relationships")
 
     def load_all(self) -> None:
         """Create constraints, nodes and structural relationships."""
-        print("Creating constraints...")
+        logger.info("Creating constraints...")
         self.client.create_constraints()
 
-        print("Loading nodes...")
+        logger.info("Loading nodes...")
         self.load_nodes()
 
-        print("Loading BELONGS_TO...")
+        logger.info("Loading BELONGS_TO...")
         self.load_belongs_to()
 
-        print("Loading CREATED...")
+        logger.info("Loading CREATED...")
         self.load_created()
 
-        print("Loading SIMILAR_TO...")
+        logger.info("Loading SIMILAR_TO...")
         self.load_similar_to()
 
-        print("Graph data loading complete!")
+        logger.info("Graph data loading complete!")
 
 
 if __name__ == "__main__":
+    setup_logging()
     loader = GraphLoader()
     loader.load_all()
     loader.client.close()

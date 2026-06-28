@@ -7,6 +7,9 @@ from sentence_transformers import SentenceTransformer
 
 from src.db.postgres_client import db as postgres_db
 from src.db.redis_client import redis_client
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class SearchService:
@@ -26,8 +29,9 @@ class SearchService:
         Args:
             model_name: HuggingFace model identifier (default: all-MiniLM-L6-v2)
         """
+        logger.info("Loading SentenceTransformer model '%s'", model_name)
         self.model: SentenceTransformer = SentenceTransformer(model_name)
-        print(f"SentenceTransformer model '{model_name}' loaded.")
+        logger.info("SentenceTransformer model '%s' loaded", model_name)
 
     def _get_semantic_search_key(self, query: str) -> str:
         """Generate cache key for semantic search."""
@@ -68,12 +72,15 @@ class SearchService:
         cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.SEMANTIC_SEARCH_PREFIX}:hit")
+            logger.debug("Cache HIT semantic_search query=%r", query)
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.SEMANTIC_SEARCH_PREFIX}:miss")
+        logger.debug("Cache MISS semantic_search query=%r (limit=%d)", query, limit)
         query_embedding: np.ndarray = self.model.encode(query)
         result: List[Dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
         redis_client.set_json(cache_key, result)
+        logger.info("semantic_search query=%r returned %d results", query, len(result))
         return result
     
 
@@ -94,9 +101,11 @@ class SearchService:
         cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.HYBRID_SEARCH_PREFIX}:hit")
+            logger.debug("Cache HIT hybrid_search query=%r", query)
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.HYBRID_SEARCH_PREFIX}:miss")
+        logger.debug("Cache MISS hybrid_search query=%r (limit=%d)", query, limit)
 
         query_embedding: np.ndarray = self.model.encode(query)
         semantic_results: List[Dict[str, Any]] = postgres_db.semantic_search(query_embedding.tolist(), limit)
@@ -123,6 +132,10 @@ class SearchService:
         )[:limit]
 
         redis_client.set_json(cache_key, ranked_results)
+        logger.info(
+            "hybrid_search query=%r fused %d semantic + %d keyword -> %d results",
+            query, len(semantic_results), len(keyword_results), len(ranked_results),
+        )
         return ranked_results
 
     def search_by_name(self, name: str, limit: int = 10) -> List[Dict[str, Any]]:

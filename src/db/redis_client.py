@@ -12,9 +12,12 @@ from src.config import (
     RATE_LIMIT_WINDOW,
     RECOMMENDATIONS_TTL,
     REDIS_CONFIG,
-    HOT_PRODUCTS_TTL, 
+    HOT_PRODUCTS_TTL,
     CACHE_METRICS_TTL
 )
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 CART_PREFIX = "cart"
 RATE_LIMIT_PREFIX = "rate_limit"
@@ -25,6 +28,7 @@ VIEWED_PREFIX = "viewed"
 
 class RedisClient:
     def __init__(self) -> None:
+        logger.info("Initializing Redis connection pool (max_connections=50)")
         pool: redis.ConnectionPool = redis.ConnectionPool(max_connections=50, **REDIS_CONFIG)
         self.client: redis.Redis[str] = redis.Redis(connection_pool=pool)
 
@@ -215,10 +219,5 @@ class RedisClient:
         return metrics
 
 
-redis_client: RedisClient = RedisClient()
-        
-
-
-
 # Singleton instance
-redis_client = RedisClient()
+redis_client: RedisClient = RedisClient()

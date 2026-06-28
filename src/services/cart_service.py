@@ -4,6 +4,9 @@ from typing import Any, Dict, List
 
 from src.db.postgres_client import db as postgres_db
 from src.db.redis_client import redis_client
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class CartService:
@@ -26,6 +29,7 @@ class CartService:
         Returns:
             New quantity value for the product
         """
+        logger.info("Cart add user=%s product=%s qty=%d", user_id, product_id, quantity)
         return redis_client.add_to_cart(user_id, product_id, quantity)
 
     def remove_item(self, user_id: str, product_id: str) -> int:
@@ -110,6 +114,7 @@ class CartService:
         """
         cart: Dict[str, int] = self.get_cart(user_id)
         if not cart:
+            logger.info("Checkout attempted on empty cart user=%s", user_id)
             return None
 
         order_items: List[Dict[str, Any]] = []
@@ -137,6 +142,10 @@ class CartService:
         }
 
         self.clear_cart(user_id)
+        logger.info(
+            "Checkout user=%s: %d items, total=%.2f",
+            user_id, len(order_items), total_price,
+        )
         return order
 
     def get_cart_item_count(self, user_id: str) -> int:

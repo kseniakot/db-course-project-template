@@ -3,13 +3,17 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from neo4j import Driver, GraphDatabase, Session
+from neo4j import Driver, GraphDatabase
 
 from src.config import NEO4J_CONFIG
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class Neo4jClient:
     def __init__(self) -> None:
+        logger.info("Initializing Neo4j driver (max_connection_pool_size=50)")
         self.driver: Driver = GraphDatabase.driver(
             NEO4J_CONFIG["uri"],
             auth=(NEO4J_CONFIG["user"], NEO4J_CONFIG["password"]),
@@ -38,7 +42,7 @@ class Neo4jClient:
             session.run(
                 "CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS NOT NULL"
             )
-            print("Neo4j constraints created.")
+            logger.info("Neo4j constraints created")
 
     def create_category_node(self, category_id: str, name: str) -> None:
         """Create or update a Category node.

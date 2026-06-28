@@ -7,6 +7,9 @@ from typing import Any, Dict, List
 from src.db.neo4j_client import neo4j_client
 from src.db.postgres_client import db as postgres_db
 from src.db.redis_client import redis_client
+from src.logging_config import get_logger
+
+logger = get_logger(__name__)
 
 
 class RecommendationService:
@@ -261,9 +264,11 @@ class RecommendationService:
         cached_result: List[Dict[str, Any]] | None = redis_client.get_json(cache_key)
         if cached_result:
             redis_client.increment_cache_metric(f"{self.PERSONALIZED_PREFIX}:hit")
+            logger.debug("Cache HIT personalized user=%s", user_id)
             return cached_result
 
         redis_client.increment_cache_metric(f"{self.PERSONALIZED_PREFIX}:miss")
+        logger.debug("Cache MISS personalized user=%s (limit=%d)", user_id, limit)
 
         collab_recs: List[Dict[str, Any]] = self.get_collaborative_filtering(user_id, limit * 2)
         seller_recs: List[Dict[str, Any]] = self.get_seller_products(user_id, limit * 2)
@@ -312,4 +317,8 @@ class RecommendationService:
             batch_size *= 2
 
         redis_client.set_json(cache_key, selected)
+        logger.info(
+            "personalized user=%s: %d candidates -> %d selected via Sampled MMR",
+            user_id, len(all_candidates), len(selected),
+        )
         return selected

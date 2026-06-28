@@ -5,6 +5,9 @@ from typing import Dict
 from fastapi import FastAPI
 
 from src.api.routes import routers
+from src.logging_config import setup_logging
+
+setup_logging()
 
 app = FastAPI(title="ArtisanMarket API", version="1.0")
 

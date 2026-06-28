@@ -7,7 +7,10 @@ from typing import Any, Dict, List
 import pandas as pd
 
 from src.db.mongodb_client import mongo_client
+from src.logging_config import get_logger, setup_logging
 from src.utils.data_parser import DataParser
+
+logger = get_logger(__name__)
 
 RANDOM_SEED = 42
 BASE_DATE = datetime(2026, 1, 1)
@@ -100,7 +103,7 @@ class DocumentLoader:
                 })
 
         collection.insert_many(documents)
-        print(f"Loaded {len(documents)} reviews")
+        logger.info(f"Loaded {len(documents)} reviews")
 
     def load_product_specs(self) -> None:
         """Generate one spec document per product."""
@@ -128,7 +131,7 @@ class DocumentLoader:
             })
 
         collection.insert_many(documents)
-        print(f"Loaded {len(documents)} product specs")
+        logger.info(f"Loaded {len(documents)} product specs")
 
     def load_seller_profiles(self) -> None:
         """Generate a rich profile per seller, including a portfolio from their products."""
@@ -157,7 +160,7 @@ class DocumentLoader:
             })
 
         collection.insert_many(documents)
-        print(f"Loaded {len(documents)} seller profiles")
+        logger.info(f"Loaded {len(documents)} seller profiles")
 
     def load_user_preferences(self) -> None:
         """Generate a preference document per user, seeded from their interests."""
@@ -180,28 +183,29 @@ class DocumentLoader:
             })
 
         collection.insert_many(documents)
-        print(f"Loaded {len(documents)} user preferences")
+        logger.info(f"Loaded {len(documents)} user preferences")
 
     def load_all(self) -> None:
         """Load all document collections and create indexes."""
-        print("Creating indexes...")
+        logger.info("Creating indexes...")
         mongo_client.create_indexes()
 
-        print("Loading reviews...")
+        logger.info("Loading reviews...")
         self.load_reviews()
 
-        print("Loading product specs...")
+        logger.info("Loading product specs...")
         self.load_product_specs()
 
-        print("Loading seller profiles...")
+        logger.info("Loading seller profiles...")
         self.load_seller_profiles()
 
-        print("Loading user preferences...")
+        logger.info("Loading user preferences...")
         self.load_user_preferences()
 
-        print("Document data loading complete!")
+        logger.info("Document data loading complete!")
 
 
 if __name__ == "__main__":
+    setup_logging()
     loader = DocumentLoader()
     loader.load_all()

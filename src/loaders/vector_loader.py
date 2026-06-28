@@ -6,7 +6,10 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from src.db.postgres_client import db
+from src.logging_config import get_logger, setup_logging
 from src.utils.data_parser import DataParser
+
+logger = get_logger(__name__)
 
 
 class VectorLoader:
@@ -26,6 +29,7 @@ class VectorLoader:
             Tuple of (success_count, error_count)
         """
         products = self.parser.parse_products()
+        logger.info("Generating embeddings for %d products", len(products))
 
         for _, product in products.iterrows():
             # Combine relevant text fields
@@ -37,6 +41,7 @@ class VectorLoader:
             # Store in database
             self._store_embedding(product["id"], embedding)
 
+        logger.info("Stored %d product embeddings in pgvector", len(products))
         return len(products), 0
 
     def _store_embedding(self, product_id: str, embedding: np.ndarray) -> None:
@@ -56,3 +61,9 @@ class VectorLoader:
                 """,
                 (product_id, embedding.tolist()),
             )
+
+
+if __name__ == "__main__":
+    setup_logging()
+    loader = VectorLoader()
+    loader.generate_embeddings()

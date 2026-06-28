@@ -3,7 +3,10 @@
 import pandas as pd
 
 from src.db.postgres_client import PostgresConnection
+from src.logging_config import get_logger, setup_logging
 from src.utils.data_parser import DataParser
+
+logger = get_logger(__name__)
 
 
 class RelationalLoader:
@@ -24,7 +27,7 @@ class RelationalLoader:
                         """
                 cursor.execute(query, row.to_dict())
 
-        print(f"Loaded {len(categories)} categories")
+        logger.info(f"Loaded {len(categories)} categories")
 
     def load_sellers(self) -> None:
         """Load sellers into PostgreSQL."""
@@ -39,7 +42,7 @@ class RelationalLoader:
                         """
                 cursor.execute(query, row.to_dict())
 
-        print(f"Loaded {len(sellers)} sellers")
+        logger.info(f"Loaded {len(sellers)} sellers")
 
     def load_users(self) -> None:
         """Load users into PostgreSQL."""
@@ -54,7 +57,7 @@ class RelationalLoader:
                         """
                 cursor.execute(query, row.to_dict())
 
-        print(f"Loaded {len(users)} users")
+        logger.info(f"Loaded {len(users)} users")
 
     def load_products(self) -> None:
         """Load products into PostgreSQL, mapping category name to category id."""
@@ -79,28 +82,29 @@ class RelationalLoader:
                         """
                 cursor.execute(query, params)
 
-        print(f"Loaded {len(products)} products")
+        logger.info(f"Loaded {len(products)} products")
 
     def load_all(self) -> None:
         """Load all data into PostgreSQL respecting foreign key order."""
-        print("Creating tables...")
+        logger.info("Creating tables...")
         self.db.create_tables()
 
-        print("Loading categories...")
+        logger.info("Loading categories...")
         self.load_categories()
 
-        print("Loading sellers...")
+        logger.info("Loading sellers...")
         self.load_sellers()
 
-        print("Loading users...")
+        logger.info("Loading users...")
         self.load_users()
 
-        print("Loading products...")
+        logger.info("Loading products...")
         self.load_products()
 
-        print("Relational data loading complete!")
+        logger.info("Relational data loading complete!")
 
 
 if __name__ == "__main__":
+    setup_logging()
     loader = RelationalLoader()
     loader.load_all()
