@@ -60,6 +60,10 @@ ignore = [
     "E501",  # line too long (handled by formatter)
 ]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI uses these as argument defaults by design (not mutable-default bugs)
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Body", "fastapi.Header"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"

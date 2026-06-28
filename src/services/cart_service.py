@@ -99,7 +99,7 @@ class CartService:
         for product_id, quantity in cart.items():
             product: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product:
-                total += product.get("price", 0) * quantity
+                total += float(product.get("price", 0)) * quantity
 
         return total
 
@@ -123,7 +123,7 @@ class CartService:
         for product_id, quantity in cart.items():
             product_data: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product_data:
-                price: float = product_data.get("price", 0)
+                price: float = float(product_data.get("price", 0))
                 order_items.append(
                     {
                         "product_id": product_id,

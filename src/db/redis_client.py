@@ -171,8 +171,8 @@ class RedisClient:
             Dictionary mapping product_id to quantity
         """
         cart_key: str = self.get_cart_key(user_id)
-        cart_data: dict[str, bytes] = self.client.hgetall(cart_key)
-        return {product.decode(): int(qty) for product, qty in cart_data.items()}
+        cart_data: dict[str, str] = self.client.hgetall(cart_key)
+        return {product: int(qty) for product, qty in cart_data.items()}
 
     def clear_cart(self, user_id: str) -> int:
         """Clear all items from a user's cart.
