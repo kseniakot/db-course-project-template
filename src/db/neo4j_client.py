@@ -25,18 +25,12 @@ class Neo4jClient:
         self.driver.close()
 
     def create_constraints(self) -> None:
-        """Create uniqueness and existence constraints."""
+        """Create uniqueness constraints."""
         with self.driver.session() as session:
-            # Uniqueness constraints (also create indexes)
             session.run("CREATE CONSTRAINT user_id IF NOT EXISTS FOR (u:User) REQUIRE u.id IS UNIQUE")
             session.run("CREATE CONSTRAINT product_id IF NOT EXISTS FOR (p:Product) REQUIRE p.id IS UNIQUE")
             session.run("CREATE CONSTRAINT category_id IF NOT EXISTS FOR (c:Category) REQUIRE c.id IS UNIQUE")
-
-            # Property existence constraints
-            session.run("CREATE CONSTRAINT user_name IF NOT EXISTS FOR (u:User) REQUIRE u.name IS NOT NULL")
-            session.run("CREATE CONSTRAINT product_name IF NOT EXISTS FOR (p:Product) REQUIRE p.name IS NOT NULL")
-            session.run("CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS NOT NULL")
-            logger.info("Neo4j constraints created")
+            logger.info("Neo4j uniqueness constraints created")
 
     def create_category_node(self, category_id: str, name: str) -> None:
         """Create or update a Category node.
@@ -246,7 +240,8 @@ class Neo4jClient:
                 WITH rec, count(*) as frequency
                 ORDER BY frequency DESC
                 LIMIT $limit
-                RETURN rec.id as product_id, rec.name as product_name
+                RETURN rec.id as product_id, rec.name as product_name,
+                       rec.seller_id as seller_id, rec.category_id as category_id
                 """,
                 user_id=user_id,
                 limit=limit,
@@ -319,10 +314,11 @@ class Neo4jClient:
                 [:CREATED]->(other:Product)
                 WHERE other.id <> p.id
                 AND NOT (u)-[:PURCHASED]->(other)
-                WITH other, count((other)<-[:PURCHASED]-(:User)) as purchase_count
+                WITH other, COUNT { (other)<-[:PURCHASED]-(:User) } as purchase_count
                 ORDER BY purchase_count DESC
                 LIMIT $limit
-                RETURN other as product
+                RETURN other.id as product_id, other.name as product_name,
+                       other.seller_id as seller_id, other.category_id as category_id
                 """,
                 user_id=user_id,
                 limit=limit,
