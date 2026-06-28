@@ -130,13 +130,12 @@ class RedisClient:
         self.client.expire(cart_key, CART_TTL)
         return result
 
-    def remove_from_cart(self, user_id: str, product_id: str, quantity: int = None) -> int:
+    def remove_from_cart(self, user_id: str, product_id: str) -> int:
         """Remove a product from the user's cart.
 
         Args:
             user_id: User identifier
             product_id: Product identifier
-            quantity: Unused parameter (kept for API compatibility)
 
         Returns:
             1 if field was deleted, 0 if field didn't exist
