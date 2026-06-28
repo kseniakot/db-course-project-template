@@ -99,7 +99,11 @@ class RedisClient:
         self.client.expire(key, HOT_PRODUCTS_TTL)
         return result
 
-    def get_hot_products(self, date_key: str, limit: int = 10,) -> list[tuple[str, float]]:
+    def get_hot_products(
+        self,
+        date_key: str,
+        limit: int = 10,
+    ) -> list[tuple[str, float]]:
         """Get top products by purchase count.
 
         Args:
@@ -110,7 +114,7 @@ class RedisClient:
             List of tuples (product_id, score)
         """
         key = f"hot_products:{date_key}"
-        results = self.client.zrange(key, 0, -1, desc=True,  withscores=True)
+        results = self.client.zrange(key, 0, -1, desc=True, withscores=True)
 
         return results[-limit:]
 

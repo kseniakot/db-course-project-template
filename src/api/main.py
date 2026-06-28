@@ -1,6 +1,5 @@
 """FastAPI application entry point for ArtisanMarket."""
 
-
 from fastapi import FastAPI
 
 from src.api.routes import routers

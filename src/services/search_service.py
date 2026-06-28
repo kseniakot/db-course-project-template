@@ -83,7 +83,6 @@ class SearchService:
         logger.info("semantic_search query=%r returned %d results", query, len(result))
         return result
 
-
     def hybrid_search(self, query: str, limit: int = 10) -> list[dict[str, Any]]:
         """Hybrid search combining semantic and full-text with RRF ranking.
 
@@ -126,15 +125,16 @@ class SearchService:
         all_results: dict[str, dict[str, Any]] = {doc["id"]: doc for doc in semantic_results + keyword_results}
 
         ranked_results: list[dict[str, Any]] = sorted(
-            [all_results[doc_id] for doc_id in rrf_scores],
-            key=lambda x: rrf_scores[x["id"]],
-            reverse=True
+            [all_results[doc_id] for doc_id in rrf_scores], key=lambda x: rrf_scores[x["id"]], reverse=True
         )[:limit]
 
         redis_client.set_json(cache_key, ranked_results)
         logger.info(
             "hybrid_search query=%r fused %d semantic + %d keyword -> %d results",
-            query, len(semantic_results), len(keyword_results), len(ranked_results),
+            query,
+            len(semantic_results),
+            len(keyword_results),
+            len(ranked_results),
         )
         return ranked_results
 
@@ -228,11 +228,3 @@ class SearchService:
         result: list[dict[str, Any]] = postgres_db.filter_by_price(min_price, max_price, limit)
         redis_client.set_json(cache_key, result)
         return result
-
-
-
-
-
-
-
-

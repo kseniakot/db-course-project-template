@@ -1,6 +1,5 @@
 """Load nodes and relationships into Neo4j."""
 
-
 import pandas as pd
 
 from src.db.neo4j_client import neo4j_client
@@ -24,9 +23,7 @@ class GraphLoader:
         self.users: pd.DataFrame = self.parser.parse_users()
         self.sellers: pd.DataFrame = self.parser.parse_sellers()
         self.categories: pd.DataFrame = self.parser.parse_categories()
-        self.category_map: dict[str, str] = {
-            row["name"]: row["id"] for _, row in self.categories.iterrows()
-        }
+        self.category_map: dict[str, str] = {row["name"]: row["id"] for _, row in self.categories.iterrows()}
 
     def load_nodes(self) -> None:
         """Create Category, Seller, User and Product nodes."""
@@ -37,9 +34,7 @@ class GraphLoader:
             self.client.create_seller_node(seller["id"], seller["name"])
 
         for _, user in self.users.iterrows():
-            self.client.create_user_node(
-                user["id"], user["name"], user["join_date"].isoformat()
-            )
+            self.client.create_user_node(user["id"], user["name"], user["join_date"].isoformat())
 
         for _, product in self.products.iterrows():
             category_id: str = self.category_map[product["category"]]

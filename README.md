@@ -16,7 +16,7 @@ Build a robust data layer for "ArtisanMarket," an online marketplace for handmad
 - Docker (recommended for running databases)
 - PostgreSQL with pgvector extension
 - MongoDB
-- Redis  
+- Redis
 - Neo4j
 
 ## Setup Instructions

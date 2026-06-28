@@ -35,9 +35,7 @@ class PurchaseGenerator:
         self.products: pd.DataFrame = self.parser.parse_products()
         self.model: SentenceTransformer = SentenceTransformer(model_name)
         self.product_ids: list[str] = self.products["id"].tolist()
-        self.price_map: dict[str, float] = dict(
-            zip(self.products["id"], self.products["price"], strict=False)
-        )
+        self.price_map: dict[str, float] = dict(zip(self.products["id"], self.products["price"], strict=False))
 
     def _affinity_pool(self, interests: list[str]) -> list[tuple[str, float]]:
         """Rank all products by semantic similarity to a user's interests.
@@ -49,13 +47,8 @@ class PurchaseGenerator:
             List of (product_id, weight) where weight = 1 + AFFINITY_WEIGHT * similarity
         """
         embedding = self.model.encode(", ".join(interests))
-        ranked: list[dict[str, Any]] = db.semantic_search(
-            embedding.tolist(), limit=len(self.product_ids)
-        )
-        return [
-            (row["id"], 1.0 + AFFINITY_WEIGHT * max(0.0, float(row["similarity"])))
-            for row in ranked
-        ]
+        ranked: list[dict[str, Any]] = db.semantic_search(embedding.tolist(), limit=len(self.product_ids))
+        return [(row["id"], 1.0 + AFFINITY_WEIGHT * max(0.0, float(row["similarity"]))) for row in ranked]
 
     def _weighted_sample(self, pool: list[tuple[str, float]], k: int) -> list[str]:
         """Sample k distinct product ids from a weighted pool without replacement."""
@@ -92,8 +85,7 @@ class PurchaseGenerator:
             DataFrame of purchase line items with per-order total price
         """
         pools: dict[str, list[tuple[str, float]]] = {
-            user["id"]: self._affinity_pool(user["interests"])
-            for _, user in self.users.iterrows()
+            user["id"]: self._affinity_pool(user["interests"]) for _, user in self.users.iterrows()
         }
         user_records: list[dict[str, Any]] = self.users.to_dict("records")
 
@@ -108,15 +100,17 @@ class PurchaseGenerator:
             status: str = random.choice(ORDER_STATUSES)
 
             for product_id in self._weighted_sample(pools[user["id"]], random.randint(1, 3)):
-                purchases.append({
-                    "order_id": order_id,
-                    "user_id": user["id"],
-                    "product_id": product_id,
-                    "quantity": random.randint(1, 3),
-                    "price_at_purchase": self.price_map[product_id],
-                    "order_date": order_date,
-                    "status": status,
-                })
+                purchases.append(
+                    {
+                        "order_id": order_id,
+                        "user_id": user["id"],
+                        "product_id": product_id,
+                        "quantity": random.randint(1, 3),
+                        "price_at_purchase": self.price_map[product_id],
+                        "order_date": order_date,
+                        "status": status,
+                    }
+                )
 
         purchases_df: pd.DataFrame = pd.DataFrame(purchases)
 
@@ -133,9 +127,7 @@ class PurchaseGenerator:
         for user_id, group in purchases_df.groupby("user_id"):
             bought: set = set(group["product_id"])
             not_bought: list[str] = [pid for pid in self.product_ids if pid not in bought]
-            extras: list[str] = random.sample(
-                not_bought, k=min(random.randint(2, 5), len(not_bought))
-            )
+            extras: list[str] = random.sample(not_bought, k=min(random.randint(2, 5), len(not_bought)))
             for product_id in bought.union(extras):
                 viewed.append((str(user_id), product_id))
 
@@ -154,8 +146,7 @@ class PurchaseGenerator:
                     INSERT INTO orders (id, user_id, order_date, status, total_price)
                     VALUES (%s, %s, %s, %s, %s) ON CONFLICT (id) DO NOTHING;
                     """,
-                    (order["order_id"], order["user_id"], order["order_date"],
-                     order["status"], order["total_price"]),
+                    (order["order_id"], order["user_id"], order["order_date"], order["status"], order["total_price"]),
                 )
 
             for _, item in purchases_df.iterrows():
@@ -164,8 +155,7 @@ class PurchaseGenerator:
                     INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
                     VALUES (%s, %s, %s, %s) ON CONFLICT (order_id, product_id) DO NOTHING;
                     """,
-                    (item["order_id"], item["product_id"], item["quantity"],
-                     item["price_at_purchase"]),
+                    (item["order_id"], item["product_id"], item["quantity"], item["price_at_purchase"]),
                 )
 
         logger.info(f"Loaded {len(orders)} orders and {len(purchases_df)} order items into PostgreSQL")

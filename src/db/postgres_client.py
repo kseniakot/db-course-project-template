@@ -43,7 +43,8 @@ class PostgresConnection:
         if not self._pool:
             logger.info(
                 "Creating PostgreSQL connection pool (min=%d, max=%d)",
-                POOL_MIN_CONN, POOL_MAX_CONN,
+                POOL_MIN_CONN,
+                POOL_MAX_CONN,
             )
             self._pool = ThreadedConnectionPool(POOL_MIN_CONN, POOL_MAX_CONN, **self.config)
         return self._pool
@@ -261,7 +262,7 @@ class PostgresConnection:
                 )
                 LIMIT %s
                 """,
-                (query, limit)
+                (query, limit),
             )
             return cursor.fetchall()
 
@@ -377,7 +378,6 @@ class PostgresConnection:
                 (min_price, max_price, limit),
             )
             return cursor.fetchall()
-
 
     def semantic_search(self, embedding: list, limit: int = 10) -> list[dict[str, Any]]:
         """Search products using semantic similarity."""

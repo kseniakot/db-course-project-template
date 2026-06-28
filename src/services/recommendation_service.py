@@ -191,9 +191,7 @@ class RecommendationService:
         if not selected:
             return relevance
 
-        max_similarity: float = max(
-            self._calculate_similarity(candidate, item) for item in selected
-        )
+        max_similarity: float = max(self._calculate_similarity(candidate, item) for item in selected)
 
         mmr_score: float = lambda_param * relevance - (1 - lambda_param) * max_similarity
         return mmr_score
@@ -226,15 +224,11 @@ class RecommendationService:
         if not candidates:
             return []
 
-        scores: list[float] = [
-            self._compute_mmr_score(c, selected, lambda_param) for c in candidates
-        ]
+        scores: list[float] = [self._compute_mmr_score(c, selected, lambda_param) for c in candidates]
         max_score: float = max(scores)
 
         pool_items: list[dict[str, Any]] = list(candidates)
-        pool_weights: list[float] = [
-            math.exp(min((score - max_score) / temperature, 100)) for score in scores
-        ]
+        pool_weights: list[float] = [math.exp(min((score - max_score) / temperature, 100)) for score in scores]
 
         draw_count: int = min(batch_size, len(pool_items))
         batch: list[dict[str, Any]] = []
@@ -319,6 +313,8 @@ class RecommendationService:
         redis_client.set_json(cache_key, selected)
         logger.info(
             "personalized user=%s: %d candidates -> %d selected via Sampled MMR",
-            user_id, len(all_candidates), len(selected),
+            user_id,
+            len(all_candidates),
+            len(selected),
         )
         return selected

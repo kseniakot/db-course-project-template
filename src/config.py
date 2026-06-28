@@ -71,11 +71,10 @@ NEO4J_CONFIG: Neo4jConfig = {
 CACHE_TTL: int = 3600  # 1 hour
 CART_TTL: int = 86400  # 24 hours
 CACHE_METRICS_TTL = 86400
-RECOMMENDATIONS_TTL: int = 300 # 5 minutes
-HOT_PRODUCTS_TTL =  7 * 60 * 60 * 24 # 7 days
+RECOMMENDATIONS_TTL: int = 300  # 5 minutes
+HOT_PRODUCTS_TTL = 7 * 60 * 60 * 24  # 7 days
 
 
 # Rate limiting
 RATE_LIMIT_REQUESTS: int = 100
 RATE_LIMIT_WINDOW: int = 60  # seconds
-

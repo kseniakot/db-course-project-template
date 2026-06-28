@@ -62,9 +62,7 @@ class RelationalLoader:
     def load_products(self) -> None:
         """Load products into PostgreSQL, mapping category name to category id."""
         categories: pd.DataFrame = self.parser.parse_categories()
-        category_map: dict[str, str] = {
-            row["name"]: row["id"] for _, row in categories.iterrows()
-        }
+        category_map: dict[str, str] = {row["name"]: row["id"] for _, row in categories.iterrows()}
 
         products: pd.DataFrame = self.parser.parse_products()
 

@@ -1,6 +1,5 @@
 """Load vector embeddings into pgvector."""
 
-
 import numpy as np
 from sentence_transformers import SentenceTransformer
 

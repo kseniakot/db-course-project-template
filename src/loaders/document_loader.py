@@ -24,21 +24,24 @@ REVIEW_TITLES: dict[int, list[str]] = {
 }
 
 REVIEW_CONTENT: dict[int, list[str]] = {
-    5: ["The craftsmanship is stunning and it arrived well packaged.",
-        "Exactly as described, beautiful work. Will buy again."],
-    4: ["Great product overall, minor imperfections but worth it.",
-        "Very pleased, would order from this seller again."],
-    3: ["Does the job but the finish wasn't as smooth as I hoped.",
-        "Fine for the price, nothing special though."],
-    2: ["Quality didn't match the photos, a bit let down.",
-        "Arrived later than expected and felt flimsy."],
-    1: ["Broke within a week, very disappointed.",
-        "Not as pictured at all, returning it."],
+    5: [
+        "The craftsmanship is stunning and it arrived well packaged.",
+        "Exactly as described, beautiful work. Will buy again.",
+    ],
+    4: [
+        "Great product overall, minor imperfections but worth it.",
+        "Very pleased, would order from this seller again.",
+    ],
+    3: ["Does the job but the finish wasn't as smooth as I hoped.", "Fine for the price, nothing special though."],
+    2: ["Quality didn't match the photos, a bit let down.", "Arrived later than expected and felt flimsy."],
+    1: ["Broke within a week, very disappointed.", "Not as pictured at all, returning it."],
 }
 
 COMMENT_TEXTS: list[str] = [
-    "Totally agree!", "Thanks for the honest review.",
-    "I had the same experience.", "Good to know before buying.",
+    "Totally agree!",
+    "Thanks for the honest review.",
+    "I had the same experience.",
+    "Good to know before buying.",
 ]
 
 MATERIALS_BY_CATEGORY: dict[str, list[str]] = {
@@ -51,8 +54,12 @@ MATERIALS_BY_CATEGORY: dict[str, list[str]] = {
 }
 
 CARE_INSTRUCTIONS: list[str] = [
-    "Hand wash only", "Keep away from direct sunlight", "Wipe with a dry cloth",
-    "Oil regularly", "Store in a cool dry place", "Do not machine wash",
+    "Hand wash only",
+    "Keep away from direct sunlight",
+    "Wipe with a dry cloth",
+    "Oil regularly",
+    "Store in a cool dry place",
+    "Do not machine wash",
 ]
 
 
@@ -90,17 +97,19 @@ class DocumentLoader:
                     }
                     for _ in range(random.randint(0, 2))
                 ]
-                documents.append({
-                    "product_id": product["id"],
-                    "user_id": random.choice(self.user_ids),
-                    "rating": rating,
-                    "title": random.choice(REVIEW_TITLES[rating]),
-                    "content": random.choice(REVIEW_CONTENT[rating]),
-                    "helpful_votes": random.randint(0, 50),
-                    "verified_purchase": random.random() < 0.7,
-                    "created_at": self._random_date(),
-                    "comments": comments,
-                })
+                documents.append(
+                    {
+                        "product_id": product["id"],
+                        "user_id": random.choice(self.user_ids),
+                        "rating": rating,
+                        "title": random.choice(REVIEW_TITLES[rating]),
+                        "content": random.choice(REVIEW_CONTENT[rating]),
+                        "helpful_votes": random.randint(0, 50),
+                        "verified_purchase": random.random() < 0.7,
+                        "created_at": self._random_date(),
+                        "comments": comments,
+                    }
+                )
 
         collection.insert_many(documents)
         logger.info(f"Loaded {len(documents)} reviews")
@@ -114,21 +123,23 @@ class DocumentLoader:
         for _, product in self.products.iterrows():
             category: str = product["category"]
             materials: list[str] = MATERIALS_BY_CATEGORY.get(category, ["Mixed materials"])
-            documents.append({
-                "product_id": product["id"],
-                "category": category,
-                "specs": {
-                    "material": random.choice(materials),
-                    "dimensions": {
-                        "length": random.randint(5, 40),
-                        "width": random.randint(5, 40),
-                        "height": random.randint(2, 20),
-                        "unit": "cm",
+            documents.append(
+                {
+                    "product_id": product["id"],
+                    "category": category,
+                    "specs": {
+                        "material": random.choice(materials),
+                        "dimensions": {
+                            "length": random.randint(5, 40),
+                            "width": random.randint(5, 40),
+                            "height": random.randint(2, 20),
+                            "unit": "cm",
+                        },
+                        "care_instructions": random.sample(CARE_INSTRUCTIONS, k=random.randint(1, 3)),
+                        "weight": f"{random.randint(100, 2000)}g",
                     },
-                    "care_instructions": random.sample(CARE_INSTRUCTIONS, k=random.randint(1, 3)),
-                    "weight": f"{random.randint(100, 2000)}g",
-                },
-            })
+                }
+            )
 
         collection.insert_many(documents)
         logger.info(f"Loaded {len(documents)} product specs")
@@ -140,24 +151,23 @@ class DocumentLoader:
 
         documents: list[dict[str, Any]] = []
         for _, seller in self.sellers.iterrows():
-            seller_products: list[str] = self.products[
-                self.products["seller_id"] == seller["id"]
-            ]["name"].tolist()
+            seller_products: list[str] = self.products[self.products["seller_id"] == seller["id"]]["name"].tolist()
             portfolio: list[dict[str, str]] = [
-                {"title": name, "description": f"Handcrafted {name.lower()}."}
-                for name in seller_products[:3]
+                {"title": name, "description": f"Handcrafted {name.lower()}."} for name in seller_products[:3]
             ]
-            documents.append({
-                "seller_id": seller["id"],
-                "name": seller["name"],
-                "specialty": seller["specialty"],
-                "rating": float(seller["rating"]),
-                "joined": seller["joined"].to_pydatetime(),
-                "bio": f"{seller['name']} specializes in {seller['specialty'].lower()}, "
-                       f"crafting each piece by hand.",
-                "portfolio": portfolio,
-                "total_sales": random.randint(50, 5000),
-            })
+            documents.append(
+                {
+                    "seller_id": seller["id"],
+                    "name": seller["name"],
+                    "specialty": seller["specialty"],
+                    "rating": float(seller["rating"]),
+                    "joined": seller["joined"].to_pydatetime(),
+                    "bio": f"{seller['name']} specializes in {seller['specialty'].lower()}, "
+                    f"crafting each piece by hand.",
+                    "portfolio": portfolio,
+                    "total_sales": random.randint(50, 5000),
+                }
+            )
 
         collection.insert_many(documents)
         logger.info(f"Loaded {len(documents)} seller profiles")
@@ -172,15 +182,15 @@ class DocumentLoader:
         documents: list[dict[str, Any]] = []
         for _, user in self.users.iterrows():
             min_price: int = random.randint(10, 30)
-            documents.append({
-                "user_id": user["id"],
-                "interests": user["interests"],
-                "preferred_categories": random.sample(
-                    category_names, k=random.randint(1, 3)
-                ),
-                "price_range": {"min": min_price, "max": min_price + random.randint(50, 200)},
-                "last_active": self._random_date(max_days_ago=90),
-            })
+            documents.append(
+                {
+                    "user_id": user["id"],
+                    "interests": user["interests"],
+                    "preferred_categories": random.sample(category_names, k=random.randint(1, 3)),
+                    "price_range": {"min": min_price, "max": min_price + random.randint(50, 200)},
+                    "last_active": self._random_date(max_days_ago=90),
+                }
+            )
 
         collection.insert_many(documents)
         logger.info(f"Loaded {len(documents)} user preferences")

@@ -124,13 +124,15 @@ class CartService:
             product_data: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product_data:
                 price: float = product_data.get("price", 0)
-                order_items.append({
-                    "product_id": product_id,
-                    "name": product_data.get("name", ""),
-                    "price": price,
-                    "quantity": quantity,
-                    "subtotal": price * quantity,
-                })
+                order_items.append(
+                    {
+                        "product_id": product_id,
+                        "name": product_data.get("name", ""),
+                        "price": price,
+                        "quantity": quantity,
+                        "subtotal": price * quantity,
+                    }
+                )
                 total_price += price * quantity
 
         order: dict[str, Any] = {
@@ -144,7 +146,9 @@ class CartService:
         self.clear_cart(user_id)
         logger.info(
             "Checkout user=%s: %d items, total=%.2f",
-            user_id, len(order_items), total_price,
+            user_id,
+            len(order_items),
+            total_price,
         )
         return order
 
