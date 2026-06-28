@@ -144,7 +144,7 @@ class PostgresConnection:
             """,
             """
             CREATE TABLE IF NOT EXISTS order_items (
-                order_id VARCHAR(255) REFERENCES orders(id),
+                order_id VARCHAR(255) REFERENCES orders(id) ON DELETE CASCADE,
                 product_id VARCHAR(255) REFERENCES products(id),
                 quantity INT,
                 price_at_purchase DECIMAL(10, 2),

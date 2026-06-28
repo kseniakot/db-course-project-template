@@ -196,6 +196,23 @@ class Neo4jClient:
                 date=date,
             )
 
+    def add_purchase_relationships(self, pairs: list[dict[str, Any]]) -> None:
+        """Batch-create PURCHASED relationships.
+
+        Args:
+            pairs: List of dicts with keys: user_id, product_id, quantity, date
+        """
+        with self.driver.session() as session:
+            session.run(
+                """
+                UNWIND $rows AS row
+                MATCH (u:User {id: row.user_id})
+                MATCH (p:Product {id: row.product_id})
+                CREATE (u)-[:PURCHASED {quantity: row.quantity, date: row.date}]->(p)
+                """,
+                rows=pairs,
+            )
+
     def get_recommendations(self, user_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Get product recommendations for a user based on collaborative filtering.
 

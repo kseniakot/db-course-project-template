@@ -3,6 +3,7 @@
 from decimal import Decimal
 from typing import Any
 
+from src.db.neo4j_client import neo4j_client
 from src.db.postgres_client import db as postgres_db
 from src.db.redis_client import redis_client
 from src.logging_config import get_logger
@@ -140,6 +141,21 @@ class CartService:
 
         # clear the cart only after the order is durably persisted
         self.clear_cart(user_id)
+
+        try:
+            neo4j_client.add_purchase_relationships(
+                [
+                    {
+                        "user_id": user_id,
+                        "product_id": item["product_id"],
+                        "quantity": item["quantity"],
+                        "date": order_date.isoformat(),
+                    }
+                    for item in order_items
+                ]
+            )
+        except Exception:
+            logger.warning("Order %s persisted, but graph PURCHASED sync failed", order_id, exc_info=True)
 
         order: dict[str, Any] = {
             "order_id": order_id,
