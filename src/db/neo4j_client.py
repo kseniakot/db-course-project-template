@@ -32,93 +32,73 @@ class Neo4jClient:
             session.run("CREATE CONSTRAINT category_id IF NOT EXISTS FOR (c:Category) REQUIRE c.id IS UNIQUE")
             logger.info("Neo4j uniqueness constraints created")
 
-    def create_category_node(self, category_id: str, name: str) -> None:
-        """Create or update a Category node.
+    def create_category_nodes(self, categories: list[dict[str, Any]]) -> None:
+        """Batch-create/update Category nodes.
 
         Args:
-            category_id: Category identifier
-            name: Category name
+            categories: List of dicts with keys: id, name
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MERGE (c:Category {id: $category_id})
-                SET c.name = $name
+                UNWIND $rows AS row
+                MERGE (c:Category {id: row.id})
+                SET c.name = row.name
                 """,
-                category_id=category_id,
-                name=name,
+                rows=categories,
             )
 
-    def create_seller_node(self, seller_id: str, name: str) -> None:
-        """Create or update a Seller node.
+    def create_seller_nodes(self, sellers: list[dict[str, Any]]) -> None:
+        """Batch-create/update Seller nodes.
 
         Args:
-            seller_id: Seller identifier
-            name: Seller name
+            sellers: List of dicts with keys: id, name
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MERGE (s:Seller {id: $seller_id})
-                SET s.name = $name
+                UNWIND $rows AS row
+                MERGE (s:Seller {id: row.id})
+                SET s.name = row.name
                 """,
-                seller_id=seller_id,
-                name=name,
+                rows=sellers,
             )
 
-    def create_user_node(self, user_id: str, name: str, join_date: str) -> None:
-        """Create or update a User node.
+    def create_user_nodes(self, users: list[dict[str, Any]]) -> None:
+        """Batch-create/update User nodes.
 
         Args:
-            user_id: User identifier
-            name: User name
-            join_date: Join date (ISO format string)
+            users: List of dicts with keys: id, name, join_date
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MERGE (u:User {id: $user_id})
-                SET u.name = $name, u.join_date = $join_date
+                UNWIND $rows AS row
+                MERGE (u:User {id: row.id})
+                SET u.name = row.name, u.join_date = row.join_date
                 """,
-                user_id=user_id,
-                name=name,
-                join_date=join_date,
+                rows=users,
             )
 
-    def create_product_node(
-        self,
-        product_id: str,
-        name: str,
-        category: str,
-        category_id: str,
-        seller_id: str,
-    ) -> None:
-        """Create or update a Product node.
+    def create_product_nodes(self, products: list[dict[str, Any]]) -> None:
+        """Batch-create/update Product nodes.
 
-        Stores only the minimal fields needed for graph traversal and result
-        return.
+        Stores only the minimal fields needed for graph traversal and result return.
 
         Args:
-            product_id: Product identifier
-            name: Product name
-            category: Category name
-            category_id: Category identifier (for similarity scoring)
-            seller_id: Seller identifier (for similarity scoring)
+            products: List of dicts with keys: id, name, category, category_id, seller_id
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MERGE (p:Product {id: $product_id})
-                SET p.name = $name,
-                    p.category = $category,
-                    p.category_id = $category_id,
-                    p.seller_id = $seller_id
+                UNWIND $rows AS row
+                MERGE (p:Product {id: row.id})
+                SET p.name = row.name,
+                    p.category = row.category,
+                    p.category_id = row.category_id,
+                    p.seller_id = row.seller_id
                 """,
-                product_id=product_id,
-                name=name,
-                category=category,
-                category_id=category_id,
-                seller_id=seller_id,
+                rows=products,
             )
 
     def add_view_relationship(self, user_id: str, product_id: str) -> None:
@@ -140,63 +120,58 @@ class Neo4jClient:
                 timestamp=datetime.now().isoformat(),
             )
 
-    def add_product_creation_relationship(self, seller_id: str, product_id: str) -> None:
-        """Add a CREATED relationship between seller and product.
+    def add_created_relationships(self, pairs: list[dict[str, Any]]) -> None:
+        """Batch-create CREATED relationships.
 
         Args:
-            seller_id: Seller node identifier
-            product_id: Product node identifier
+            pairs: List of dicts with keys: seller_id, product_id
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MATCH (s:Seller {id: $seller_id})
-                MATCH (p:Product {id: $product_id})
+                UNWIND $rows AS row
+                MATCH (s:Seller {id: row.seller_id})
+                MATCH (p:Product {id: row.product_id})
                 MERGE (s)-[r:CREATED]->(p)
                 SET r.timestamp = $timestamp
                 """,
-                seller_id=seller_id,
-                product_id=product_id,
+                rows=pairs,
                 timestamp=datetime.now().isoformat(),
             )
 
-    def add_belongs_to_category_relationship(self, category_id: str, product_id: str) -> None:
-        """Add a BELONGS_TO relationship between product and category.
+    def add_belongs_to_relationships(self, pairs: list[dict[str, Any]]) -> None:
+        """Batch-create BELONGS_TO relationships.
 
         Args:
-            category_id: Category node identifier
-            product_id: Product node identifier
+            pairs: List of dicts with keys: product_id, category_id
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MATCH (c:Category {id: $category_id})
-                MATCH (p:Product {id: $product_id})
+                UNWIND $rows AS row
+                MATCH (c:Category {id: row.category_id})
+                MATCH (p:Product {id: row.product_id})
                 MERGE (p)-[:BELONGS_TO]->(c)
                 """,
-                category_id=category_id,
-                product_id=product_id,
+                rows=pairs,
             )
 
-    def add_similar_to_relationship(self, product1_id: str, product2_id: str, score: float) -> None:
-        """Add a SIMILAR_TO relationship between products.
+    def add_similar_to_relationships(self, pairs: list[dict[str, Any]]) -> None:
+        """Batch-create SIMILAR_TO relationships between products.
 
         Args:
-            product1_id: First product identifier
-            product2_id: Second product identifier
-            score: Similarity score between the two products
+            pairs: List of dicts with keys: product1_id, product2_id, score
         """
         with self.driver.session() as session:
             session.run(
                 """
-                MATCH (p1:Product {id: $product1_id})
-                MATCH (p2:Product {id: $product2_id})
+                UNWIND $rows AS row
+                MATCH (p1:Product {id: row.product1_id})
+                MATCH (p2:Product {id: row.product2_id})
                 MERGE (p1)-[r:SIMILAR_TO]->(p2)
-                SET r.score = $score
+                SET r.score = row.score
                 """,
-                product1_id=product1_id,
-                product2_id=product2_id,
-                score=score,
+                rows=pairs,
             )
 
     def add_purchase_relationship(self, user_id: str, product_id: str, quantity: int, date: str) -> None:

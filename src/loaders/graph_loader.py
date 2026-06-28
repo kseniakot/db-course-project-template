@@ -1,5 +1,7 @@
 """Load nodes and relationships into Neo4j."""
 
+from typing import Any
+
 import pandas as pd
 
 from src.db.neo4j_client import neo4j_client
@@ -23,28 +25,20 @@ class GraphLoader:
         self.users: pd.DataFrame = self.parser.parse_users()
         self.sellers: pd.DataFrame = self.parser.parse_sellers()
         self.categories: pd.DataFrame = self.parser.parse_categories()
-        self.category_map: dict[str, str] = {row["name"]: row["id"] for _, row in self.categories.iterrows()}
+        self.category_map: dict[str, str] = dict(zip(self.categories["name"], self.categories["id"], strict=False))
 
     def load_nodes(self) -> None:
-        """Create Category, Seller, User and Product nodes."""
-        for _, category in self.categories.iterrows():
-            self.client.create_category_node(category["id"], category["name"])
+        """Batch-create Category, Seller, User and Product nodes."""
+        self.client.create_category_nodes(self.categories[["id", "name"]].to_dict("records"))
+        self.client.create_seller_nodes(self.sellers[["id", "name"]].to_dict("records"))
 
-        for _, seller in self.sellers.iterrows():
-            self.client.create_seller_node(seller["id"], seller["name"])
+        users = self.users[["id", "name", "join_date"]].copy()
+        users["join_date"] = users["join_date"].apply(lambda d: d.isoformat())
+        self.client.create_user_nodes(users.to_dict("records"))
 
-        for _, user in self.users.iterrows():
-            self.client.create_user_node(user["id"], user["name"], user["join_date"].isoformat())
-
-        for _, product in self.products.iterrows():
-            category_id: str = self.category_map[product["category"]]
-            self.client.create_product_node(
-                product["id"],
-                product["name"],
-                product["category"],
-                category_id,
-                product["seller_id"],
-            )
+        products = self.products[["id", "name", "category", "seller_id"]].copy()
+        products["category_id"] = products["category"].map(self.category_map)
+        self.client.create_product_nodes(products.to_dict("records"))
 
         logger.info(
             f"Loaded nodes: {len(self.categories)} categories, {len(self.sellers)} sellers, "
@@ -52,29 +46,33 @@ class GraphLoader:
         )
 
     def load_belongs_to(self) -> None:
-        """Create BELONGS_TO relationships from products to their category."""
-        for _, product in self.products.iterrows():
-            category_id: str = self.category_map[product["category"]]
-            self.client.add_belongs_to_category_relationship(category_id, product["id"])
-
-        logger.info(f"Loaded {len(self.products)} BELONGS_TO relationships")
+        """Batch-create BELONGS_TO relationships from products to their category."""
+        pairs: list[dict[str, str]] = pd.DataFrame(
+            {
+                "product_id": self.products["id"],
+                "category_id": self.products["category"].map(self.category_map),
+            }
+        ).to_dict("records")
+        self.client.add_belongs_to_relationships(pairs)
+        logger.info(f"Loaded {len(pairs)} BELONGS_TO relationships")
 
     def load_created(self) -> None:
-        """Create CREATED relationships from sellers to their products."""
-        for _, product in self.products.iterrows():
-            self.client.add_product_creation_relationship(product["seller_id"], product["id"])
-
-        logger.info(f"Loaded {len(self.products)} CREATED relationships")
+        """Batch-create CREATED relationships from sellers to their products."""
+        pairs: list[dict[str, str]] = (
+            self.products[["seller_id", "id"]].rename(columns={"id": "product_id"}).to_dict("records")
+        )
+        self.client.add_created_relationships(pairs)
+        logger.info(f"Loaded {len(pairs)} CREATED relationships")
 
     def load_similar_to(self) -> None:
-        """Create SIMILAR_TO relationships for product pairs sharing seller or category.
+        """Batch-create SIMILAR_TO relationships for product pairs sharing seller or category.
 
         Score uses the same formula as the recommendation MMR diversity penalty:
         same_seller * 0.6 + same_category * 0.4. Edges are created in a single
         direction per pair; queries should traverse SIMILAR_TO undirected.
         """
         records: list[dict] = self.products.to_dict("records")
-        count: int = 0
+        pairs: list[dict[str, Any]] = []
 
         for i in range(len(records)):
             for j in range(i + 1, len(records)):
@@ -84,10 +82,10 @@ class GraphLoader:
                 score: float = same_seller * SAME_SELLER_WEIGHT + same_category * SAME_CATEGORY_WEIGHT
 
                 if score > 0:
-                    self.client.add_similar_to_relationship(first["id"], second["id"], score)
-                    count += 1
+                    pairs.append({"product1_id": first["id"], "product2_id": second["id"], "score": score})
 
-        logger.info(f"Loaded {count} SIMILAR_TO relationships")
+        self.client.add_similar_to_relationships(pairs)
+        logger.info(f"Loaded {len(pairs)} SIMILAR_TO relationships")
 
     def load_all(self) -> None:
         """Create constraints, nodes and structural relationships."""
