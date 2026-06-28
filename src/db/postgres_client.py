@@ -1,7 +1,10 @@
 """PostgreSQL connection and utilities."""
 
+import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
+from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import psycopg2
@@ -205,6 +208,47 @@ class PostgresConnection:
                 (product_id,),
             )
             return cursor.fetchone()
+
+    def create_order(
+        self,
+        user_id: str,
+        total_price: Decimal,
+        items: list[dict[str, Any]],
+        status: str = "pending",
+    ) -> tuple[str, datetime]:
+        """Persist an order and its items in a single transaction.
+
+        Args:
+            user_id: User placing the order
+            total_price: Exact order total
+            items: List of dicts with keys product_id, quantity, price
+            status: Order status (default: pending)
+
+        Returns:
+            Tuple of (generated order_id, order_date)
+        """
+        order_id: str = str(uuid.uuid4())
+        order_date: datetime = datetime.now(UTC)
+
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO orders (id, user_id, order_date, status, total_price)
+                VALUES (%s, %s, %s, %s, %s)
+                """,
+                (order_id, user_id, order_date, status, total_price),
+            )
+            for item in items:
+                cursor.execute(
+                    """
+                    INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (order_id, item["product_id"], item["quantity"], item["price"]),
+                )
+
+        logger.info("Created order %s for user %s (%d items)", order_id, user_id, len(items))
+        return order_id, order_date
 
     def find_similar_products(self, product_id: str, limit: int = 5) -> list[dict[str, Any]]:
         """Find similar products using vector similarity search.

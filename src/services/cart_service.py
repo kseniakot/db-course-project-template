@@ -1,5 +1,6 @@
 """Service for managing shopping carts."""
 
+from decimal import Decimal
 from typing import Any
 
 from src.db.postgres_client import db as postgres_db
@@ -81,25 +82,25 @@ class CartService:
         """
         return redis_client.clear_cart(user_id)
 
-    def get_cart_total(self, user_id: str) -> float:
+    def get_cart_total(self, user_id: str) -> Decimal:
         """Calculate total price for items in cart.
 
         Args:
             user_id: User identifier
 
         Returns:
-            Total price of all items in cart
+            Exact total price of all items in cart
         """
         cart: dict[str, int] = self.get_cart(user_id)
         if not cart:
-            return 0.0
+            return Decimal("0")
 
-        total: float = 0.0
+        total: Decimal = Decimal("0")
 
         for product_id, quantity in cart.items():
             product: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product:
-                total += float(product.get("price", 0)) * quantity
+                total += product.get("price", Decimal("0")) * quantity
 
         return total
 
@@ -118,12 +119,12 @@ class CartService:
             return None
 
         order_items: list[dict[str, Any]] = []
-        total_price: float = 0.0
+        total_price: Decimal = Decimal("0")
 
         for product_id, quantity in cart.items():
             product_data: dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product_data:
-                price: float = float(product_data.get("price", 0))
+                price: Decimal = product_data.get("price", Decimal("0"))
                 order_items.append(
                     {
                         "product_id": product_id,
@@ -135,18 +136,25 @@ class CartService:
                 )
                 total_price += price * quantity
 
+        order_id, order_date = postgres_db.create_order(user_id, total_price, order_items)
+
+        # clear the cart only after the order is durably persisted
+        self.clear_cart(user_id)
+
         order: dict[str, Any] = {
+            "order_id": order_id,
             "user_id": user_id,
+            "order_date": order_date,
             "items": order_items,
             "total_price": total_price,
             "item_count": len(order_items),
             "status": "pending",
         }
 
-        self.clear_cart(user_id)
         logger.info(
-            "Checkout user=%s: %d items, total=%.2f",
+            "Checkout user=%s order=%s: %d items, total=%.2f",
             user_id,
+            order_id,
             len(order_items),
             total_price,
         )

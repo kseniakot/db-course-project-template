@@ -22,10 +22,13 @@ logger = get_logger(__name__)
 
 
 def _json_default(obj: Any) -> Any:
-    """JSON serializer for types psycopg2 returns that json.dumps can't handle."""
+    """JSON serializer for types psycopg2 returns that json.dumps can't handle.
+
+    Decimal is emitted as a string to preserve exact money values.
+    """
     if isinstance(obj, Decimal):
-        return float(obj)
-    if isinstance(obj, (datetime, date)):
+        return str(obj)
+    if isinstance(obj, datetime | date):
         return obj.isoformat()
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
