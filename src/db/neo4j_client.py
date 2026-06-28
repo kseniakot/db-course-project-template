@@ -97,7 +97,6 @@ class Neo4jClient:
         self,
         product_id: str,
         name: str,
-        price: float,
         category: str,
         category_id: str,
         seller_id: str,
@@ -110,7 +109,6 @@ class Neo4jClient:
         Args:
             product_id: Product identifier
             name: Product name
-            price: Product price
             category: Category name
             category_id: Category identifier (for similarity scoring)
             seller_id: Seller identifier (for similarity scoring)
@@ -120,14 +118,12 @@ class Neo4jClient:
                 """
                 MERGE (p:Product {id: $product_id})
                 SET p.name = $name,
-                    p.price = $price,
                     p.category = $category,
                     p.category_id = $category_id,
                     p.seller_id = $seller_id
                 """,
                 product_id=product_id,
                 name=name,
-                price=price,
                 category=category,
                 category_id=category_id,
                 seller_id=seller_id,

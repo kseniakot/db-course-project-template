@@ -44,7 +44,6 @@ class GraphLoader:
             self.client.create_product_node(
                 product["id"],
                 product["name"],
-                float(product["price"]),
                 product["category"],
                 category_id,
                 product["seller_id"],
