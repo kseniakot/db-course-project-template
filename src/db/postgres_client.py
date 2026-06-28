@@ -175,6 +175,9 @@ class PostgresConnection:
             """
             CREATE INDEX IF NOT EXISTS idx_product_fulltext ON products USING gin (to_tsvector('english', name || ' ' || description));
             """,
+            """
+            CREATE INDEX IF NOT EXISTS idx_product_tags ON products USING gin (tags);
+            """,
         ]
 
         logger.info("Creating %d tables/indexes if not present", len(queries))
