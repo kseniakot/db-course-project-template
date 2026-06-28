@@ -1,7 +1,7 @@
 """PostgreSQL connection and utilities."""
 
 from contextlib import contextmanager
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any, Dict, Generator, List
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -29,9 +29,9 @@ except ImportError:
 class PostgresConnection:
     def __init__(self) -> None:
         self.config: Dict[str, Any] = POSTGRES_CONFIG
-        self._engine: Optional[Engine] = None
-        self._session_factory: Optional[sessionmaker] = None
-        self._pool: Optional[ThreadedConnectionPool] = None
+        self._engine: Engine | None = None
+        self._session_factory: sessionmaker | None = None
+        self._pool: ThreadedConnectionPool | None = None
 
     @property
     def pool(self) -> ThreadedConnectionPool:
@@ -170,6 +170,26 @@ class PostgresConnection:
         with self.get_cursor() as cursor:
             for query in queries:
                 cursor.execute(query)
+
+    def get_product_by_id(self, product_id: str) -> Dict[str, Any] | None:
+        """Fetch a single product by its exact id.
+
+        Args:
+            product_id: Product identifier
+
+        Returns:
+            Product row as a dict, or None if not found
+        """
+        with self.get_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, name, description, price, category_id, seller_id, tags, stock
+                FROM products
+                WHERE id = %s
+                """,
+                (product_id,),
+            )
+            return cursor.fetchone()
 
     def find_similar_products(self, product_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Find similar products using vector similarity search.
@@ -354,8 +374,9 @@ class PostgresConnection:
         with self.get_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT p.*,
-                    1 - (pe.embedding <=> %s::vector) as similarity
+                SELECT p.id, p.name, p.description, p.price, p.category_id,
+                       p.seller_id, p.tags, p.stock,
+                       1 - (pe.embedding <=> %s::vector) as similarity
                 FROM products p
                 JOIN product_embeddings pe ON p.id = pe.product_id
                 ORDER BY pe.embedding <=> %s::vector

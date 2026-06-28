@@ -1,7 +1,7 @@
 """Redis connection and utilities."""
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import redis
 
@@ -28,7 +28,7 @@ class RedisClient:
         pool: redis.ConnectionPool = redis.ConnectionPool(max_connections=50, **REDIS_CONFIG)
         self.client: redis.Redis[str] = redis.Redis(connection_pool=pool)
 
-    def get_json(self, key: str) -> Optional[Any]:
+    def get_json(self, key: str) -> Any | None:
         """Get JSON data from Redis.
 
         Args:
@@ -37,7 +37,7 @@ class RedisClient:
         Returns:
             Parsed JSON data or None if key doesn't exist
         """
-        data: Optional[bytes] = self.client.get(key)
+        data: bytes | None = self.client.get(key)
         return json.loads(data) if data else None
 
     def set_json(self, key: str, value: Any, ttl: int = CACHE_TTL) -> bool:
@@ -210,7 +210,7 @@ class RedisClient:
         metrics: Dict[str, int] = {}
         for key in self.client.scan_iter("cache_metrics:*"):
             metric_name: str = key.split(":", 1)[1]
-            value: Optional[bytes] = self.client.get(key)
+            value: bytes | None = self.client.get(key)
             metrics[metric_name] = int(value) if value else 0
         return metrics
 

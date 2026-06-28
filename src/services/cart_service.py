@@ -91,12 +91,11 @@ class CartService:
             return 0.0
 
         total: float = 0.0
-        product_ids: List[str] = list(cart.keys())
 
         for product_id, quantity in cart.items():
-            product: List[Dict[str, Any]] | None = postgres_db.find_similar_products(product_id, limit=1)
+            product: Dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
             if product:
-                total += product[0].get("price", 0) * quantity
+                total += product.get("price", 0) * quantity
 
         return total
 
@@ -117,9 +116,8 @@ class CartService:
         total_price: float = 0.0
 
         for product_id, quantity in cart.items():
-            product: List[Dict[str, Any]] | None = postgres_db.find_similar_products(product_id, limit=1)
-            if product:
-                product_data: Dict[str, Any] = product[0]
+            product_data: Dict[str, Any] | None = postgres_db.get_product_by_id(product_id)
+            if product_data:
                 price: float = product_data.get("price", 0)
                 order_items.append({
                     "product_id": product_id,

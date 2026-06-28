@@ -1,7 +1,7 @@
 """Neo4j connection and utilities."""
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from neo4j import Driver, GraphDatabase, Session
 
